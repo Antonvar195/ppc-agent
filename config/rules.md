@@ -155,3 +155,76 @@ All_18-35_fb
 utm_source=facebook&utm_medium={тип}&utm_campaign={{campaign.name}}&utm_content={{ad.name}}&utm_term={{adset.name}}&placement={{placement}}
 
 utm_medium завжди = тип кампанії (reach / conversion / cpc / leads)
+
+---
+
+## ПАРАМЕТРИ ЗАПУСКУ
+
+### Рівень кампанії
+- Тип бюджету: ABO (бюджет на рівні групи)
+- Статус: завжди PAUSED при створенні
+- Дата завершення: уточнювати завжди
+
+### Рівень групи — дефолти
+- Вік: 18-55
+- Стать: всі
+- Ставка: LOWEST_COST_WITHOUT_CAP
+- Розклад: весь день
+- Тип бюджету: дневной
+
+### Плейсменти за замовчуванням
+Facebook Feed
+Instagram Feed
+Instagram Stories
+Instagram Reels
+Threads
+(якщо не вказано інше в ТЗ)
+
+Для зміни плейсментів — вказати в ТЗ або в назві групи:
+inst_treads → тільки Instagram + Threads
+inst → тільки Instagram (Feed + Stories + Reels)
+fb → тільки Facebook Feed
+
+### Оптимізація по типу кампанії
+reach:       OUTCOME_AWARENESS → REACH
+cpc:         OUTCOME_TRAFFIC → LINK_CLICKS
+conversion:  OUTCOME_SALES → OFFSITE_CONVERSIONS
+leads:       OUTCOME_LEADS → LEAD_GENERATION
+
+### Пиксель і події конверсії
+Пиксель: 393751978682816 — скрізь обов'язково
+
+Події за замовчуванням:
+reach      → PageView (пиксель без оптимізації)
+cpc        → LINK_CLICKS (без події конверсії)
+conversion → Purchase (CAPI)
+leads      → Purchase (CAPI)
+
+Виключення по продукту:
+eRePS / Academy → Academy lead ID: 1440890166561556
+Coach           → Coach lead ID: 2036168100274232
+
+Якщо тип конверсії не вказано в ТЗ — агент питає.
+
+### Обов'язкові параметри в ТЗ
+Без цього агент не починає роботу:
+1. Тип кампанії (reach/cpc/conversion/leads)
+2. Гео (місто / клуб / всі)
+3. Дата старту (DDMM)
+4. Дата завершення (DDMM або кількість днів)
+5. Бюджет на групу (грн/день)
+6. Креативи (посилання на файли)
+
+### Параметри що уточнюються якщо не вказані
+- Подія конверсії (для conversion/leads/cpc)
+- Вік аудиторії (або дефолт 18-55?)
+- Плейсменти (або дефолт FB+Inst+Threads?)
+- Оптимізація (або дефолт по типу?)
+
+### Параметри що НЕ питаємо — завжди дефолт
+- Стать → всі
+- Ставка → LOWEST_COST
+- Пиксель → 393751978682816
+- Статус → PAUSED
+- Розклад → весь день
+- Тип бюджету → ABO
