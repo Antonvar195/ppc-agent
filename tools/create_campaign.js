@@ -73,7 +73,8 @@ async function createAd(adsetId, params) {
       link_data: {
         link: params.url,
         message: params.text || 'Apollo Next — фітнес для всіх',
-        name: params.headline || 'Apollo Next'
+        name: params.headline || 'Apollo Next',
+        ...(params.image_hash && { image_hash: params.image_hash })
       }
     })
   });
@@ -86,11 +87,7 @@ async function createAd(adsetId, params) {
     name: params.name,
     adset_id: adsetId,
     creative: JSON.stringify({ creative_id: creativeResult.id }),
-    status: 'PAUSED',
-    tracking_specs: JSON.stringify([{
-      'action.type': ['offsite_conversion'],
-      'fb_pixel': []
-    }])
+    status: 'PAUSED'
   });
 
   if (adResult.error) {

@@ -25,7 +25,8 @@ const testStructure = {
           name: '0904_1',
           url: 'https://apollo.online/clubs/',
           text: 'Apollo Next — фітнес для всіх',
-          headline: 'Перше тренування безкоштовно'
+          headline: 'Перше тренування безкоштовно',
+          image_hash: '25a980b2dc6f619917787cad0874af26'
         }
       ]
     }
