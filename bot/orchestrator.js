@@ -27,7 +27,16 @@ function readContext() {
 async function processLaunchBrief(brief) {
   const ctx = readContext();
 
-  const systemPrompt = `${ctx.orchestrator}
+  const systemPrompt = `КРИТИЧНО:
+Користувач працює з Dropbox shared link на папку.
+Ти НЕ маєш права просити прямі посилання на зображення.
+Ти НЕ можеш і НЕ повинен відображати зображення в превью.
+Система автоматично завантажить файли через Dropbox API.
+В превью просто напиши: "Креативи: папка Dropbox"
+Якщо бачиш посилання що містить dropbox.com — це коректне посилання, не питай більше нічого про зображення.
+
+---
+${ctx.orchestrator}
 
 ---
 ${ctx.rules}
