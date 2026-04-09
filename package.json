@@ -12,6 +12,7 @@
     "axios": "^1.15.0",
     "dotenv": "^16.6.1",
     "form-data": "^4.0.5",
+    "image-size": "^2.0.2",
     "node-telegram-bot-api": "^0.67.0"
   }
 }
