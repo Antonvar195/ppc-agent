@@ -1,7 +1,41 @@
 const { apiPost, apiGet } = require('./meta_api');
+const https = require('https');
+const http = require('http');
 require('dotenv').config();
 
 const AD_ACCOUNT_ID = process.env.META_AD_ACCOUNT_ID;
+
+// Загрузить изображение по URL и получить image_hash в Meta
+function uploadImageFromUrl(imageUrl, name) {
+  return new Promise((resolve, reject) => {
+    // Добавляем протокол если отсутствует
+    if (!imageUrl.startsWith('http://') && !imageUrl.startsWith('https://')) {
+      imageUrl = 'https://' + imageUrl;
+    }
+    const client = imageUrl.startsWith('https') ? https : http;
+    client.get(imageUrl, (res) => {
+      // Следуем редиректам
+      if (res.statusCode === 301 || res.statusCode === 302) {
+        return uploadImageFromUrl(res.headers.location, name).then(resolve).catch(reject);
+      }
+      const chunks = [];
+      res.on('data', c => chunks.push(c));
+      res.on('end', async () => {
+        const buffer = Buffer.concat(chunks);
+        const base64 = buffer.toString('base64');
+        const result = await apiPost(`${AD_ACCOUNT_ID}/adimages`, {
+          bytes: base64,
+          name: name + '_img.jpg'
+        });
+        if (result.error) return reject(new Error(result.error.message));
+        const imgData = Object.values(result.images || {})[0];
+        if (!imgData) return reject(new Error('Не вдалося завантажити зображення'));
+        resolve(imgData.hash);
+      });
+      res.on('error', reject);
+    }).on('error', reject);
+  });
+}
 
 // Маппинг коротких типов из rules.md → актуальные objective Meta API v19+
 const OBJECTIVE_MAP = {
@@ -45,9 +79,8 @@ async function createAdset(campaignId, params) {
     age_max: 65
   };
   delete targeting.threads_positions;
-  if (!targeting.targeting_automation) {
-    targeting.targeting_automation = { advantage_audience: 0 };
-  }
+  // Всегда отключаем Advantage+ audience (иначе Meta требует age_max: 65)
+  targeting.targeting_automation = { advantage_audience: 0 };
 
   const adsetParams = {
     name: params.name,
@@ -79,7 +112,22 @@ async function createAdset(campaignId, params) {
 async function createAd(adsetId, params) {
   console.log(`\n📄 Создаю объявление: ${params.name}`);
 
-  // Сначала создаём creative placeholder
+  // Получаем image_hash — из params или загружаем по creative_url
+  let imageHash = params.image_hash || null;
+  if (!imageHash && params.creative_url) {
+    console.log(`   🖼️ Завантажую зображення: ${params.creative_url}`);
+    try {
+      imageHash = await uploadImageFromUrl(params.creative_url, params.name);
+      console.log(`   ✅ Зображення завантажено, hash: ${imageHash}`);
+    } catch (e) {
+      throw new Error(`Не вдалося завантажити зображення (${params.creative_url}): ${e.message}`);
+    }
+  }
+
+  if (!imageHash) {
+    throw new Error(`Об'явлення ${params.name}: потрібне зображення (image_hash або creative_url з прямим посиланням на файл)`);
+  }
+
   const creativeResult = await apiPost(`${AD_ACCOUNT_ID}/adcreatives`, {
     name: params.name + '_creative',
     object_story_spec: JSON.stringify({
@@ -88,7 +136,7 @@ async function createAd(adsetId, params) {
         link: params.url,
         message: params.text || 'Apollo Next — фітнес для всіх',
         name: params.headline || 'Apollo Next',
-        ...(params.image_hash && { image_hash: params.image_hash })
+        image_hash: imageHash
       }
     })
   });

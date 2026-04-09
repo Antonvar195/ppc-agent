@@ -127,6 +127,9 @@ async function handleApproval(chatId, userId, text) {
 
     try {
       const { publishStructure } = require('./orchestrator');
+      console.log('=== STRUCTURE TO PUBLISH ===');
+      console.log(JSON.stringify(sessions[userId].structure, null, 2));
+      console.log('============================');
       const result = await publishStructure(sessions[userId].structure);
 
       let report = '✅ <b>Кампания создана!</b>\n\n';

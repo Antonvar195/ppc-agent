@@ -84,6 +84,8 @@ ${ctx.validator}
             "name": "...",
             "url": "https://apollo.online/clubs/",
             "text": "...",
+            "headline": "Apollo Next",
+            "creative_url": "https://example.com/image.jpg",
             "utm": "utm_source=facebook&utm_medium=reach..."
           }
         ]
@@ -91,6 +93,9 @@ ${ctx.validator}
     ]
   }
 }
+
+ВАЖНО: поле creative_url ОБЯЗАТЕЛЬНО для каждого объявления — это прямая ссылка на файл изображения (jpg/png).
+Если пользователь не указал изображение — верни needs_clarification с просьбой предоставить прямую ссылку на изображение.
 
 Формат ответа при ошибке:
 {
