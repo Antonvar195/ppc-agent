@@ -144,26 +144,16 @@ async function createAdWithAssets(adsetId, adName, assetFeedSpec, pageId) {
 
   const creativeResult = await apiPost(`${AD_ACCOUNT_ID}/adcreatives`, {
     name: adName + '_creative',
-    object_story_spec: JSON.stringify({
-      page_id: pageId,
-      link_data: {
-        link: assetFeedSpec.link_urls[0].website_url,
-        message: assetFeedSpec.bodies[0].text,
-        name: assetFeedSpec.titles[0].text,
-        call_to_action: {
-          type: 'LEARN_MORE',
-          value: { link: assetFeedSpec.link_urls[0].website_url }
-        }
-      }
-    }),
-    asset_feed_spec: JSON.stringify(assetFeedSpec)
+    asset_feed_spec: JSON.stringify(assetFeedSpec),
+    page_id: pageId
   });
 
   if (creativeResult.error) {
-    // Fallback: создаём по одному объявлению на каждое изображение
-    console.log(`  ⚠️ asset_feed_spec не спрацював, fallback до одного зображення...`);
-    const images = assetFeedSpec.images || [];
-    if (images.length === 0) throw new Error(`Creative: ${creativeResult.error.message}`);
+    console.log('asset_feed_spec помилка:', creativeResult.error.message);
+    console.log('Використовую fallback з першим зображенням...');
+
+    const firstImage = assetFeedSpec.images?.[0];
+    if (!firstImage) throw new Error('Немає зображень для fallback');
 
     const fallbackCreative = await apiPost(`${AD_ACCOUNT_ID}/adcreatives`, {
       name: adName + '_creative',
@@ -173,7 +163,7 @@ async function createAdWithAssets(adsetId, adName, assetFeedSpec, pageId) {
           link: assetFeedSpec.link_urls[0].website_url,
           message: assetFeedSpec.bodies[0].text,
           name: assetFeedSpec.titles[0].text,
-          image_hash: images[0].hash,
+          image_hash: firstImage.hash,
           call_to_action: {
             type: 'LEARN_MORE',
             value: { link: assetFeedSpec.link_urls[0].website_url }
@@ -183,7 +173,7 @@ async function createAdWithAssets(adsetId, adName, assetFeedSpec, pageId) {
     });
 
     if (fallbackCreative.error) {
-      throw new Error(`Creative: ${fallbackCreative.error.message}`);
+      throw new Error(`Fallback creative: ${fallbackCreative.error.message}`);
     }
 
     const adResult = await apiPost(`${AD_ACCOUNT_ID}/ads`, {
@@ -194,7 +184,7 @@ async function createAdWithAssets(adsetId, adName, assetFeedSpec, pageId) {
     });
 
     if (adResult.error) throw new Error(`Ad: ${adResult.error.message}`);
-    console.log(`✅ Об'явлення створено (fallback): ${adResult.id}`);
+    console.log(`✅ Об'явлення (fallback) створено: ${adResult.id}`);
     return adResult.id;
   }
 
@@ -205,10 +195,7 @@ async function createAdWithAssets(adsetId, adName, assetFeedSpec, pageId) {
     status: 'PAUSED'
   });
 
-  if (adResult.error) {
-    throw new Error(`Ad: ${adResult.error.message}`);
-  }
-
+  if (adResult.error) throw new Error(`Ad: ${adResult.error.message}`);
   console.log(`✅ Об'явлення створено: ${adResult.id}`);
   return adResult.id;
 }
