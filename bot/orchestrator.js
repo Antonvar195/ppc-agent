@@ -97,14 +97,23 @@ ${ctx.validator}
   "message": "описание ошибки"
 }`;
 
-  const response = await client.messages.create({
-    model: 'claude-sonnet-4-20250514',
-    max_tokens: 4000,
-    system: systemPrompt,
-    messages: [
-      { role: 'user', content: `ТЗ на запуск:\n${brief}` }
-    ]
-  });
+  let response;
+  try {
+    response = await client.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 4000,
+      system: systemPrompt,
+      messages: [
+        { role: 'user', content: `ТЗ на запуск:\n${brief}` }
+      ]
+    });
+  } catch (e) {
+    const msg = e.message || '';
+    if (msg.toLowerCase().includes('credit balance') || msg.toLowerCase().includes('billing')) {
+      return { error: '⚠️ Недостаточно кредитов Anthropic API. Пополни баланс на console.anthropic.com' };
+    }
+    throw e;
+  }
 
   const text = response.content[0].text.trim();
 
