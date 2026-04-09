@@ -6,7 +6,7 @@ const testStructure = {
   page_id: '107996248132865',
   campaign: {
     name: 'A_Apollo_reach_Test_test_0904',
-    objective: 'REACH'
+    objective: 'OUTCOME_AWARENESS'
   },
   adsets: [
     {

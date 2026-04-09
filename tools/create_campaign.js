@@ -3,15 +3,26 @@ require('dotenv').config();
 
 const AD_ACCOUNT_ID = process.env.META_AD_ACCOUNT_ID;
 
+// Маппинг коротких типов из rules.md → актуальные objective Meta API v19+
+const OBJECTIVE_MAP = {
+  reach:      'OUTCOME_AWARENESS',
+  conversion: 'OUTCOME_SALES',
+  cpc:        'OUTCOME_TRAFFIC',
+  leads:      'OUTCOME_LEADS'
+};
+
 // Создать кампанию
 async function createCampaign(params) {
   console.log(`\n📢 Создаю кампанию: ${params.name}`);
 
+  const objective = OBJECTIVE_MAP[params.objective] || params.objective;
+
   const result = await apiPost(`${AD_ACCOUNT_ID}/campaigns`, {
     name: params.name,
-    objective: params.objective,
+    objective,
     status: 'PAUSED',
-    special_ad_categories: '[]'
+    special_ad_categories: '[]',
+    is_adset_budget_sharing_enabled: false
   });
 
   if (result.error) {

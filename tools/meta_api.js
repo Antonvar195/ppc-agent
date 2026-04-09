@@ -1,5 +1,6 @@
 const https = require('https');
-require('dotenv').config({ path: '../.env' });
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '../.env') });
 
 const TOKEN = process.env.META_ACCESS_TOKEN;
 const AD_ACCOUNT_ID = process.env.META_AD_ACCOUNT_ID;
