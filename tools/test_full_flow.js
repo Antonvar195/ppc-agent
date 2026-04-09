@@ -4,7 +4,7 @@ require('dotenv').config();
 const testStructure = {
   page_id: '107996248132865',
   campaign: {
-    name: 'A_Apollo_reach_Test_fullflow_0904',
+    name: 'A_Apollo_reach_Test_grouping_0904',
     objective: 'OUTCOME_AWARENESS',
     status: 'PAUSED'
   },
@@ -40,10 +40,12 @@ const testStructure = {
 };
 
 async function run() {
-  console.log('🚀 Повний тест флоу\n');
+  console.log('🚀 Тест групування креативів\n');
   const result = await createFullStructure(testStructure);
   console.log('\n📊 РЕЗУЛЬТАТ:');
-  console.log(JSON.stringify(result, null, 2));
+  console.log(`Кампанія: ${result.campaign_id}`);
+  console.log(`Груп: ${result.adsets.length}`);
+  console.log(`Об'явлень: ${result.ads.length}`);
 }
 
 run();

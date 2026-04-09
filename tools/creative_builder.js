@@ -7,7 +7,7 @@ require('dotenv').config();
 const AD_ACCOUNT_ID = process.env.META_AD_ACCOUNT_ID;
 const DROPBOX_TOKEN = process.env.DROPBOX_ACCESS_TOKEN;
 
-// Скачать файл из Dropbox по shared link + имя файла → буфер
+// Скачать файл из Dropbox shared folder → буфер
 async function downloadFromSharedFolder(sharedFolderUrl, fileName) {
   const response = await axios({
     method: 'post',
@@ -37,43 +37,62 @@ async function uploadImageBufferToMeta(buffer, name) {
   return imgData.hash;
 }
 
-// Загрузить все файлы из Dropbox в Meta
-// Вернуть asset_feed_spec готовый для объявления
-async function buildAssetFeedSpec(dropboxLink, adText, adHeadline, destinationUrl) {
-  console.log('\n📦 Збираю креативи...');
+// Извлечь числовой идентификатор из имени файла
+function extractCreativeId(filename) {
+  const match = filename.match(/(\d+)/g);
+  if (match) {
+    return match[0].replace(/^0+/, '') || '0'; // убираем ведущие нули
+  }
+  return null;
+}
 
-  // 1. Читаем файлы из Dropbox
-  const files = await listFolderBySharedLink(dropboxLink);
-  console.log(`Знайдено файлів: ${files.length}`);
+// Группировать файлы по числовому идентификатору
+function groupByCreativeId(files) {
+  const groups = {};
+  const noId = [];
 
+  files.forEach(file => {
+    const id = extractCreativeId(file.name);
+    if (id !== null) {
+      if (!groups[id]) groups[id] = [];
+      groups[id].push(file);
+    } else {
+      noId.push(file);
+    }
+  });
+
+  if (noId.length > 0) {
+    groups['other'] = noId;
+  }
+
+  return groups;
+}
+
+// Собрать spec для одной группы: скачать из Dropbox → загрузить в Meta
+async function buildSpecForGroup(files, adText, adHeadline, destinationUrl) {
   const images = [];
   const videos = [];
 
-  // 2. Загружаем каждый файл: скачиваем из Dropbox → заливаем в Meta
   for (const file of files) {
     try {
-      console.log(`  ⬇️  Завантажую з Dropbox: ${file.name}`);
+      console.log(`    ⬇️  ${file.name} (${Math.round(file.size / 1024)}KB)`);
       const { sharedFolderUrl, fileName } = file.downloadUrl;
       const buffer = await downloadFromSharedFolder(sharedFolderUrl, fileName);
 
       if (isVideo(file.name)) {
-        // Видео — загружаем через file_url (Meta скачивает сам) — пока не поддерживаем буфер
-        console.log(`  ⚠️ Відео поки не підтримується через буфер, пропускаємо: ${file.name}`);
+        // TODO: видео через буфер не поддерживается, пропускаем
+        console.log(`    ⚠️ Відео пропущено (поки не підтримується): ${file.name}`);
       } else {
-        console.log(`  ⬆️  Заливаю в Meta: ${file.name} (${Math.round(buffer.length / 1024)}KB)`);
         const hash = await uploadImageBufferToMeta(buffer, file.name);
         images.push({ hash });
-        console.log(`  ✅ hash: ${hash}`);
+        console.log(`    ✅ hash: ${hash}`);
       }
     } catch (err) {
-      console.log(`⚠️ Не вдалося завантажити ${file.name}: ${err.message}`);
+      console.log(`    ⚠️ ${file.name}: ${err.message}`);
     }
   }
 
-  console.log(`✅ Завантажено: ${images.length} зображень, ${videos.length} відео`);
-
-  // 3. Собираем asset_feed_spec
-  const assetFeedSpec = {
+  const spec = {
     bodies: [{ text: adText }],
     titles: [{ text: adHeadline }],
     link_urls: [{
@@ -84,37 +103,77 @@ async function buildAssetFeedSpec(dropboxLink, adText, adHeadline, destinationUr
     ad_formats: ['AUTOMATIC_FORMAT']
   };
 
-  if (images.length > 0) assetFeedSpec.images = images;
-  if (videos.length > 0) assetFeedSpec.videos = videos;
+  if (images.length > 0) spec.images = images;
+  if (videos.length > 0) spec.videos = videos;
 
-  return assetFeedSpec;
+  return spec;
+}
+
+// Главная функция — возвращает массив specs, по одному на каждый креатив
+async function buildAllCreativeSpecs(dropboxLink, adText, adHeadline, destinationUrl) {
+  console.log('\n📦 Читаю креативи з Dropbox...');
+
+  const files = await listFolderBySharedLink(dropboxLink);
+  console.log(`Знайдено файлів: ${files.length}`);
+
+  const groups = groupByCreativeId(files);
+  const groupKeys = Object.keys(groups).sort((a, b) => {
+    const na = parseInt(a) || 0;
+    const nb = parseInt(b) || 0;
+    return na - nb;
+  });
+
+  console.log(`\nЗнайдено креативів: ${groupKeys.length}`);
+  groupKeys.forEach(key => {
+    console.log(`  Креатив ${key}: ${groups[key].map(f => f.name).join(', ')}`);
+  });
+
+  const specs = [];
+  for (const key of groupKeys) {
+    console.log(`\n⬆️  Завантажую креатив ${key}...`);
+    const spec = await buildSpecForGroup(groups[key], adText, adHeadline, destinationUrl);
+    specs.push({ creativeId: key, spec });
+  }
+
+  return specs;
 }
 
 // Создать объявление с asset_feed_spec
 async function createAdWithAssets(adsetId, adName, assetFeedSpec, pageId) {
   console.log(`\n📄 Створюю об'явлення: ${adName}`);
 
-  // Для кожного зображення створюємо окреме оголошення
-  const adIds = [];
-  const imageHashes = assetFeedSpec.images || [];
+  const creativeResult = await apiPost(`${AD_ACCOUNT_ID}/adcreatives`, {
+    name: adName + '_creative',
+    object_story_spec: JSON.stringify({
+      page_id: pageId,
+      link_data: {
+        link: assetFeedSpec.link_urls[0].website_url,
+        message: assetFeedSpec.bodies[0].text,
+        name: assetFeedSpec.titles[0].text,
+        call_to_action: {
+          type: 'LEARN_MORE',
+          value: { link: assetFeedSpec.link_urls[0].website_url }
+        }
+      }
+    }),
+    asset_feed_spec: JSON.stringify(assetFeedSpec)
+  });
 
-  if (imageHashes.length === 0) {
-    throw new Error('Немає зображень для створення оголошення');
-  }
+  if (creativeResult.error) {
+    // Fallback: создаём по одному объявлению на каждое изображение
+    console.log(`  ⚠️ asset_feed_spec не спрацював, fallback до одного зображення...`);
+    const images = assetFeedSpec.images || [];
+    if (images.length === 0) throw new Error(`Creative: ${creativeResult.error.message}`);
 
-  for (let i = 0; i < imageHashes.length; i++) {
-    const adSuffix = imageHashes.length > 1 ? `_${String(i + 1).padStart(2, '0')}` : '';
-    const singleAdName = adName + adSuffix;
-
-    const creativeResult = await apiPost(`${AD_ACCOUNT_ID}/adcreatives`, {
-      name: singleAdName + '_creative',
+    const fallbackCreative = await apiPost(`${AD_ACCOUNT_ID}/adcreatives`, {
+      name: adName + '_creative',
       object_story_spec: JSON.stringify({
         page_id: pageId,
         link_data: {
           link: assetFeedSpec.link_urls[0].website_url,
           message: assetFeedSpec.bodies[0].text,
           name: assetFeedSpec.titles[0].text,
-          image_hash: imageHashes[i].hash,
+          image_hash: images[0].hash,
           call_to_action: {
             type: 'LEARN_MORE',
             value: { link: assetFeedSpec.link_urls[0].website_url }
@@ -123,30 +182,35 @@ async function createAdWithAssets(adsetId, adName, assetFeedSpec, pageId) {
       })
     });
 
-    if (creativeResult.error) {
-      console.log(`⚠️ Creative ${singleAdName}:`, JSON.stringify(creativeResult.error));
-      continue;
+    if (fallbackCreative.error) {
+      throw new Error(`Creative: ${fallbackCreative.error.message}`);
     }
 
     const adResult = await apiPost(`${AD_ACCOUNT_ID}/ads`, {
-      name: singleAdName,
+      name: adName,
       adset_id: adsetId,
-      creative: JSON.stringify({ creative_id: creativeResult.id }),
+      creative: JSON.stringify({ creative_id: fallbackCreative.id }),
       status: 'PAUSED'
     });
 
-    if (adResult.error) {
-      console.log(`⚠️ Ad ${singleAdName}:`, JSON.stringify(adResult.error));
-      continue;
-    }
-
-    console.log(`  ✅ ${singleAdName}: ${adResult.id}`);
-    adIds.push(adResult.id);
+    if (adResult.error) throw new Error(`Ad: ${adResult.error.message}`);
+    console.log(`✅ Об'явлення створено (fallback): ${adResult.id}`);
+    return adResult.id;
   }
 
-  if (adIds.length === 0) throw new Error('Жодне оголошення не створено');
-  console.log(`✅ Створено оголошень: ${adIds.length}`);
-  return adIds[0]; // возвращаем первый id для совместимости
+  const adResult = await apiPost(`${AD_ACCOUNT_ID}/ads`, {
+    name: adName,
+    adset_id: adsetId,
+    creative: JSON.stringify({ creative_id: creativeResult.id }),
+    status: 'PAUSED'
+  });
+
+  if (adResult.error) {
+    throw new Error(`Ad: ${adResult.error.message}`);
+  }
+
+  console.log(`✅ Об'явлення створено: ${adResult.id}`);
+  return adResult.id;
 }
 
-module.exports = { buildAssetFeedSpec, createAdWithAssets };
+module.exports = { buildAllCreativeSpecs, createAdWithAssets };

@@ -1,5 +1,5 @@
 const { apiPost, apiGet } = require('./meta_api');
-const { buildAssetFeedSpec, createAdWithAssets } = require('./creative_builder');
+const { buildAllCreativeSpecs, createAdWithAssets } = require('./creative_builder');
 const https = require('https');
 const http = require('http');
 require('dotenv').config();
@@ -111,15 +111,29 @@ async function createAdset(campaignId, params) {
 
 // Создать объявление
 async function createAd(adsetId, params) {
-  // Если есть dropbox_link — загружаем все креативы из Dropbox
+  const results = [];
+
   if (params.dropbox_link) {
-    const assetFeedSpec = await buildAssetFeedSpec(
+    // Получаем все specs, сгруппированные по креативам
+    const creativeSpecs = await buildAllCreativeSpecs(
       params.dropbox_link,
       params.text || 'Apollo Next — фітнес для всіх',
       params.headline || 'Спробуй Apollo Next',
       params.url
     );
-    return await createAdWithAssets(adsetId, params.name, assetFeedSpec, params.page_id);
+
+    // Создаём одно объявление на каждый креатив
+    for (const { creativeId, spec } of creativeSpecs) {
+      const adName = params.name.replace(/\d+$/, '') + creativeId;
+      try {
+        const adId = await createAdWithAssets(adsetId, adName, spec, params.page_id);
+        results.push(adId);
+      } catch (err) {
+        console.log(`⚠️ ${adName}: ${err.message}`);
+      }
+    }
+
+    return results;
   }
 
   // Старый флоу — одно изображение по URL или hash
@@ -146,16 +160,14 @@ async function createAd(adsetId, params) {
       page_id: params.page_id,
       link_data: {
         link: params.url,
-        message: params.text || 'Apollo Next — фітнес для всіх',
+        message: params.text || 'Apollo Next',
         name: params.headline || 'Apollo Next',
         image_hash: imageHash
       }
     })
   });
 
-  if (creativeResult.error) {
-    throw new Error(`Creative: ${creativeResult.error.message}`);
-  }
+  if (creativeResult.error) throw new Error(`Creative: ${creativeResult.error.message}`);
 
   const adResult = await apiPost(`${AD_ACCOUNT_ID}/ads`, {
     name: params.name,
@@ -164,9 +176,7 @@ async function createAd(adsetId, params) {
     status: 'PAUSED'
   });
 
-  if (adResult.error) {
-    throw new Error(`Ad: ${adResult.error.message}`);
-  }
+  if (adResult.error) throw new Error(`Ad: ${adResult.error.message}`);
 
   console.log(`✅ Объявление создано: ${adResult.id}`);
   return adResult.id;
@@ -200,11 +210,18 @@ async function createFullStructure(structure) {
         // 3. Создаём объявления в группе
         for (const ad of adset.ads) {
           try {
-            const adId = await createAd(adsetId, {
+            const adResult = await createAd(adsetId, {
               ...ad,
               page_id: structure.page_id
             });
-            results.ads.push({ name: ad.name, id: adId, adset: adset.name });
+            // createAd может вернуть id или массив id (при dropbox_link)
+            if (Array.isArray(adResult)) {
+              adResult.forEach((id, i) => {
+                results.ads.push({ name: ad.name + '_' + (i + 1), id, adset: adset.name });
+              });
+            } else {
+              results.ads.push({ name: ad.name, id: adResult, adset: adset.name });
+            }
           } catch (err) {
             results.errors.push(`Объявление ${ad.name}: ${err.message}`);
             console.log(`⚠️ ${err.message}`);
