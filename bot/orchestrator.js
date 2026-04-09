@@ -105,7 +105,10 @@ ${ctx.validator}
       max_tokens: 4000,
       system: systemPrompt,
       messages: [
-        { role: 'user', content: `ТЗ на запуск:\n${brief}` }
+        {
+          role: 'user',
+          content: `Сьогодні: ${new Date().toISOString().split('T')[0]} (${new Date().getFullYear()} рік). Всі дати в структурі мають бути в майбутньому відносно цієї дати.\n\nТЗ на запуск:\n${brief}`
+        }
       ]
     });
   } catch (e) {

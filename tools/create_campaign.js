@@ -63,6 +63,9 @@ async function createAdset(campaignId, params) {
   if (params.end_time) adsetParams.end_time = params.end_time;
 
   const result = await apiPost(`${AD_ACCOUNT_ID}/adsets`, adsetParams);
+  console.log('=== ADSET API RESPONSE ===');
+  console.log(JSON.stringify(result, null, 2));
+  console.log('==========================');
 
   if (result.error) {
     throw new Error(`Ошибка создания группы: ${result.error.message}`);
@@ -90,6 +93,10 @@ async function createAd(adsetId, params) {
     })
   });
 
+  console.log('=== AD/CREATIVE API RESPONSE (creative) ===');
+  console.log(JSON.stringify(creativeResult, null, 2));
+  console.log('================================');
+
   if (creativeResult.error) {
     throw new Error(`Ошибка создания креатива: ${creativeResult.error.message}`);
   }
@@ -100,6 +107,9 @@ async function createAd(adsetId, params) {
     creative: JSON.stringify({ creative_id: creativeResult.id }),
     status: 'PAUSED'
   });
+  console.log('=== AD/CREATIVE API RESPONSE (ad) ===');
+  console.log(JSON.stringify(adResult, null, 2));
+  console.log('================================');
 
   if (adResult.error) {
     throw new Error(`Ошибка создания объявления: ${adResult.error.message}`);
@@ -111,6 +121,9 @@ async function createAd(adsetId, params) {
 
 // Главная функция — создать всю структуру
 async function createFullStructure(structure) {
+  console.log('=== INCOMING STRUCTURE ===');
+  console.log(JSON.stringify(structure, null, 2));
+  console.log('==========================');
   console.log('\n🚀 НАЧИНАЮ СОЗДАНИЕ СТРУКТУРЫ');
   console.log('================================');
 
