@@ -1,7 +1,7 @@
 const Anthropic = require('@anthropic-ai/sdk');
 const fs = require('fs');
 const path = require('path');
-const { createFullStructure } = require('../tools/create_campaign');
+const { createFullStructure, validateFullStructure } = require('../tools/create_campaign');
 
 require('dotenv').config();
 
@@ -148,9 +148,28 @@ ${ctx.validator}
       console.log('=== PARSED STRUCTURE ===');
       console.log(JSON.stringify(parsed, null, 2));
       console.log('========================');
+
+      console.log('🔍 Запускаю валідацію через Meta API...');
+      const validation = await validateFullStructure(parsed.structure);
+
+      if (!validation.valid) {
+        const errorList = validation.errors.join('\n• ');
+        return {
+          needsClarification: true,
+          field: 'validation_errors',
+          question: `⚠️ Знайдено помилки в структурі:\n\n• ${errorList}\n\nВиправ та надішли ТЗ знову.`
+        };
+      }
+
+      let previewNote = '';
+      if (validation.autoFixed.length > 0) {
+        previewNote = '\n\n🔧 Автоматично виправлено:\n• ' +
+          validation.autoFixed.join('\n• ');
+      }
+
       return {
-        preview: parsed.preview,
-        structure: parsed.structure
+        preview: parsed.preview + previewNote,
+        structure: validation.structure
       };
     }
 
