@@ -182,33 +182,24 @@ async function validateCampaign(params) {
     status: 'PAUSED',
     special_ad_categories: '[]',
     is_adset_budget_sharing_enabled: false,
-    execution_options: JSON.stringify([{ execution_type: 'VALIDATE_ONLY' }])
+    execution_options: JSON.stringify(['validate_only'])
   });
   return result;
 }
 
-async function validateAdset(params) {
-  const targeting = { ...(params.targeting || {}) };
-  delete targeting.threads_positions;
-  if (!targeting.targeting_automation) {
-    targeting.targeting_automation = { advantage_audience: 0 };
-  }
+function validateAdset(params) {
+  // Meta требует реальный campaign_id даже для validate_only —
+  // делаем локальную проверку обязательных полей
+  const errors = [];
+  if (!params.name) errors.push('name обов\'язковий');
+  if (!params.daily_budget) errors.push('daily_budget обов\'язковий');
+  if (!params.optimization_goal) errors.push('optimization_goal обов\'язковий');
+  if (!params.start_time) errors.push('start_time обов\'язковий');
+  if (!params.end_time) errors.push('end_time обов\'язковий');
+  if (!params.targeting || !params.targeting.geo_locations) errors.push('targeting.geo_locations обов\'язковий');
 
-  const adsetParams = {
-    name: params.name,
-    campaign_id: 'ACT_PLACEHOLDER',
-    daily_budget: params.daily_budget || 1000,
-    billing_event: params.billing_event || 'IMPRESSIONS',
-    optimization_goal: params.optimization_goal || 'REACH',
-    bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
-    targeting: JSON.stringify(targeting),
-    status: 'PAUSED',
-    start_time: params.start_time || new Date().toISOString(),
-    execution_options: JSON.stringify([{ execution_type: 'VALIDATE_ONLY' }])
-  };
-  if (params.end_time) adsetParams.end_time = params.end_time;
-
-  return await apiPost(`${AD_ACCOUNT_ID}/adsets`, adsetParams);
+  if (errors.length > 0) return { error: { message: errors.join(', ') } };
+  return { success: true };
 }
 
 async function validateAd(params) {
@@ -223,7 +214,7 @@ async function validateAd(params) {
         name: params.headline || 'Apollo Next'
       }
     }),
-    execution_options: JSON.stringify([{ execution_type: 'VALIDATE_ONLY' }])
+    execution_options: JSON.stringify(['validate_only'])
   });
 }
 
