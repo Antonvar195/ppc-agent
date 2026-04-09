@@ -1,0 +1,12 @@
+{
+  "name": "ppc-agent",
+  "version": "1.0.0",
+  "description": "PPC Agent — Apollo Next",
+  "main": "index.js",
+  "scripts": {
+    "test": "node tools/test.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.0.0"
+  }
+}
