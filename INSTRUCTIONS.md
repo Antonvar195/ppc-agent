@@ -20,8 +20,6 @@
 - Meta API соединение работает, аккаунт активен
 
 ### Сейчас делаем
-- Наполнить agents/publisher.md
-- Создать CLAUDE.md — инструкции для Claude Code
 - Создать orchestrator.md — главный агент
 - Подключить Telegram бота
 - Первый тестовый запуск создания структуры
@@ -115,7 +113,7 @@ naming_agent.md     ✅ готов
 utm_agent.md        ✅ готов
 validator.md        ✅ готов
 link_checker.md     ✅ готов
-publisher.md        ⏳ в работе
+publisher.md        ✅ готов
 /config
 rules.md            ✅ готов
 /tools
@@ -125,7 +123,7 @@ test_structure.js   ✅ готов (не запускали)
 /history
 launches.json       ✅ пустой массив
 INSTRUCTIONS.md       ✅ этот файл
-CLAUDE.md             ⏳ следующий
+CLAUDE.md             ✅ готов
 .env                  ✅ заполнен (не в GitHub)
 .env.example          ✅ шаблон
 .gitignore            ✅
