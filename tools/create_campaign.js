@@ -1,4 +1,5 @@
 const { apiPost, apiGet } = require('./meta_api');
+const { buildAssetFeedSpec, createAdWithAssets } = require('./creative_builder');
 const https = require('https');
 const http = require('http');
 require('dotenv').config();
@@ -108,24 +109,35 @@ async function createAdset(campaignId, params) {
   return result.id;
 }
 
-// Создать объявление (заглушка — без реального креатива)
+// Создать объявление
 async function createAd(adsetId, params) {
+  // Если есть dropbox_link — загружаем все креативы из Dropbox
+  if (params.dropbox_link) {
+    const assetFeedSpec = await buildAssetFeedSpec(
+      params.dropbox_link,
+      params.text || 'Apollo Next — фітнес для всіх',
+      params.headline || 'Спробуй Apollo Next',
+      params.url
+    );
+    return await createAdWithAssets(adsetId, params.name, assetFeedSpec, params.page_id);
+  }
+
+  // Старый флоу — одно изображение по URL или hash
   console.log(`\n📄 Создаю объявление: ${params.name}`);
 
-  // Получаем image_hash — из params или загружаем по creative_url
   let imageHash = params.image_hash || null;
   if (!imageHash && params.creative_url) {
     console.log(`   🖼️ Завантажую зображення: ${params.creative_url}`);
     try {
       imageHash = await uploadImageFromUrl(params.creative_url, params.name);
-      console.log(`   ✅ Зображення завантажено, hash: ${imageHash}`);
+      console.log(`   ✅ hash: ${imageHash}`);
     } catch (e) {
       throw new Error(`Не вдалося завантажити зображення (${params.creative_url}): ${e.message}`);
     }
   }
 
   if (!imageHash) {
-    throw new Error(`Об'явлення ${params.name}: потрібне зображення (image_hash або creative_url з прямим посиланням на файл)`);
+    throw new Error(`Об'явлення ${params.name}: потрібне зображення (dropbox_link, image_hash або creative_url)`);
   }
 
   const creativeResult = await apiPost(`${AD_ACCOUNT_ID}/adcreatives`, {
@@ -141,12 +153,8 @@ async function createAd(adsetId, params) {
     })
   });
 
-  console.log('=== AD/CREATIVE API RESPONSE (creative) ===');
-  console.log(JSON.stringify(creativeResult, null, 2));
-  console.log('================================');
-
   if (creativeResult.error) {
-    throw new Error(`Ошибка создания креатива: ${creativeResult.error.message}`);
+    throw new Error(`Creative: ${creativeResult.error.message}`);
   }
 
   const adResult = await apiPost(`${AD_ACCOUNT_ID}/ads`, {
@@ -155,12 +163,9 @@ async function createAd(adsetId, params) {
     creative: JSON.stringify({ creative_id: creativeResult.id }),
     status: 'PAUSED'
   });
-  console.log('=== AD/CREATIVE API RESPONSE (ad) ===');
-  console.log(JSON.stringify(adResult, null, 2));
-  console.log('================================');
 
   if (adResult.error) {
-    throw new Error(`Ошибка создания объявления: ${adResult.error.message}`);
+    throw new Error(`Ad: ${adResult.error.message}`);
   }
 
   console.log(`✅ Объявление создано: ${adResult.id}`);

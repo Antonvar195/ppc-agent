@@ -94,42 +94,59 @@ async function buildAssetFeedSpec(dropboxLink, adText, adHeadline, destinationUr
 async function createAdWithAssets(adsetId, adName, assetFeedSpec, pageId) {
   console.log(`\n📄 Створюю об'явлення: ${adName}`);
 
-  // Создаём creative
-  const creativeResult = await apiPost(`${AD_ACCOUNT_ID}/adcreatives`, {
-    name: adName + '_creative',
-    object_story_spec: JSON.stringify({
-      page_id: pageId,
-      link_data: {
-        link: assetFeedSpec.link_urls[0].website_url,
-        message: assetFeedSpec.bodies[0].text,
-        name: assetFeedSpec.titles[0].text,
-        call_to_action: {
-          type: 'LEARN_MORE',
-          value: { link: assetFeedSpec.link_urls[0].website_url }
+  // Для кожного зображення створюємо окреме оголошення
+  const adIds = [];
+  const imageHashes = assetFeedSpec.images || [];
+
+  if (imageHashes.length === 0) {
+    throw new Error('Немає зображень для створення оголошення');
+  }
+
+  for (let i = 0; i < imageHashes.length; i++) {
+    const adSuffix = imageHashes.length > 1 ? `_${String(i + 1).padStart(2, '0')}` : '';
+    const singleAdName = adName + adSuffix;
+
+    const creativeResult = await apiPost(`${AD_ACCOUNT_ID}/adcreatives`, {
+      name: singleAdName + '_creative',
+      object_story_spec: JSON.stringify({
+        page_id: pageId,
+        link_data: {
+          link: assetFeedSpec.link_urls[0].website_url,
+          message: assetFeedSpec.bodies[0].text,
+          name: assetFeedSpec.titles[0].text,
+          image_hash: imageHashes[i].hash,
+          call_to_action: {
+            type: 'LEARN_MORE',
+            value: { link: assetFeedSpec.link_urls[0].website_url }
+          }
         }
-      }
-    }),
-    asset_feed_spec: JSON.stringify(assetFeedSpec)
-  });
+      })
+    });
 
-  if (creativeResult.error) {
-    throw new Error(`Creative: ${creativeResult.error.message}`);
+    if (creativeResult.error) {
+      console.log(`⚠️ Creative ${singleAdName}:`, JSON.stringify(creativeResult.error));
+      continue;
+    }
+
+    const adResult = await apiPost(`${AD_ACCOUNT_ID}/ads`, {
+      name: singleAdName,
+      adset_id: adsetId,
+      creative: JSON.stringify({ creative_id: creativeResult.id }),
+      status: 'PAUSED'
+    });
+
+    if (adResult.error) {
+      console.log(`⚠️ Ad ${singleAdName}:`, JSON.stringify(adResult.error));
+      continue;
+    }
+
+    console.log(`  ✅ ${singleAdName}: ${adResult.id}`);
+    adIds.push(adResult.id);
   }
 
-  // Создаём объявление
-  const adResult = await apiPost(`${AD_ACCOUNT_ID}/ads`, {
-    name: adName,
-    adset_id: adsetId,
-    creative: JSON.stringify({ creative_id: creativeResult.id }),
-    status: 'PAUSED'
-  });
-
-  if (adResult.error) {
-    throw new Error(`Ad: ${adResult.error.message}`);
-  }
-
-  console.log(`✅ Об'явлення створено: ${adResult.id}`);
-  return adResult.id;
+  if (adIds.length === 0) throw new Error('Жодне оголошення не створено');
+  console.log(`✅ Створено оголошень: ${adIds.length}`);
+  return adIds[0]; // возвращаем первый id для совместимости
 }
 
 module.exports = { buildAssetFeedSpec, createAdWithAssets };

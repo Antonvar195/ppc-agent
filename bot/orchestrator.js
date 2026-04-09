@@ -85,7 +85,7 @@ ${ctx.validator}
             "url": "https://apollo.online/clubs/",
             "text": "...",
             "headline": "Apollo Next",
-            "creative_url": "https://example.com/image.jpg",
+            "dropbox_link": "https://www.dropbox.com/scl/fo/...",
             "utm": "utm_source=facebook&utm_medium=reach..."
           }
         ]
@@ -94,8 +94,16 @@ ${ctx.validator}
   }
 }
 
-ВАЖНО: поле creative_url ОБЯЗАТЕЛЬНО для каждого объявления — это прямая ссылка на файл изображения (jpg/png).
-Если пользователь не указал изображение — верни needs_clarification с просьбой предоставить прямую ссылку на изображение.
+ВАЖЛИВО для ads:
+- dropbox_link: посилання на папку Dropbox з креативами (якщо є в ТЗ — додай в кожне оголошення)
+- creative_url: пряме посилання на файл зображення (jpg/png) — альтернатива dropbox_link
+- text: текст об'явлення (обов'язково)
+- headline: заголовок об'явлення (обов'язково)
+- url: посилання на сайт (визначається за правилами)
+
+Якщо в ТЗ є посилання на Dropbox — додай його в кожне оголошення як dropbox_link.
+Якщо немає ні dropbox_link ні creative_url — верни needs_clarification з проханням надати зображення або папку Dropbox.
+Якщо немає тексту — верни needs_clarification з проханням надати текст об'явлення.
 
 Формат ответа при ошибке:
 {
