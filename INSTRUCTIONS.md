@@ -29,6 +29,18 @@
 - Модель весов дней недели
 - Алерты аномального спенда
 
+## TODO: Dynamic Creative (asset_feed_spec)
+Статус: отложено
+Что нужно:
+- Запросить Dynamic Creative capability для Meta App 1275096940684899
+- Business Manager → App Settings → запросить расширенный доступ
+- После одобрения — обновить createAdWithAssets в tools/creative_builder.js
+- Убрать fallback на object_story_spec
+- Одно объявление будет содержать все форматы (квадрат + вертикаль)
+  вместо отдельного объявления на каждый файл
+
+Текущий fallback: один image_hash на объявление — работает стабильно.
+
 ---
 
 ## Ключевые данные
