@@ -75,7 +75,8 @@ ${ctx.validator}
           "age_max": 55,
           "publisher_platforms": ["facebook", "instagram"],
           "facebook_positions": ["feed"],
-          "instagram_positions": ["stream", "story", "reels"]
+          "instagram_positions": ["stream", "story", "reels"],
+          "targeting_automation": {"advantage_audience": 0}
         },
         "pixel_id": "393751978682816",
         "ads": [
@@ -118,7 +119,18 @@ ${ctx.validator}
   const text = response.content[0].text.trim();
 
   try {
-    const parsed = JSON.parse(text);
+    // Убираем markdown обёртку если есть
+    let cleanText = text.trim();
+    if (cleanText.startsWith('```')) {
+      cleanText = cleanText
+        .replace(/^```json\n?/, '')
+        .replace(/^```\n?/, '')
+        .replace(/\n?```$/, '')
+        .trim();
+    }
+
+    const parsed = JSON.parse(cleanText);
+    console.log('ORCHESTRATOR RESPONSE:', JSON.stringify(parsed, null, 2));
 
     if (parsed.status === 'needs_clarification') {
       return {
@@ -133,6 +145,9 @@ ${ctx.validator}
     }
 
     if (parsed.status === 'ready') {
+      console.log('=== PARSED STRUCTURE ===');
+      console.log(JSON.stringify(parsed, null, 2));
+      console.log('========================');
       return {
         preview: parsed.preview,
         structure: parsed.structure

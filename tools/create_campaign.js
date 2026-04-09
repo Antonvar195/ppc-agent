@@ -37,21 +37,32 @@ async function createCampaign(params) {
 async function createAdset(campaignId, params) {
   console.log(`\n👥 Создаю группу: ${params.name}`);
 
-  const result = await apiPost(`${AD_ACCOUNT_ID}/adsets`, {
+  // Нормализуем targeting — убираем threads_positions (не поддерживается),
+  // добавляем обязательный targeting_automation
+  const targeting = params.targeting || {
+    geo_locations: { countries: ['UA'] },
+    age_min: 18,
+    age_max: 65
+  };
+  delete targeting.threads_positions;
+  if (!targeting.targeting_automation) {
+    targeting.targeting_automation = { advantage_audience: 0 };
+  }
+
+  const adsetParams = {
     name: params.name,
     campaign_id: campaignId,
     daily_budget: params.daily_budget || 1000,
     billing_event: 'IMPRESSIONS',
     optimization_goal: params.optimization_goal || 'REACH',
     bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
-    targeting: JSON.stringify(params.targeting || {
-      geo_locations: { countries: ['UA'] },
-      age_min: 18,
-      age_max: 65
-    }),
+    targeting: JSON.stringify(targeting),
     status: 'PAUSED',
     start_time: params.start_time || new Date().toISOString()
-  });
+  };
+  if (params.end_time) adsetParams.end_time = params.end_time;
+
+  const result = await apiPost(`${AD_ACCOUNT_ID}/adsets`, adsetParams);
 
   if (result.error) {
     throw new Error(`Ошибка создания группы: ${result.error.message}`);
