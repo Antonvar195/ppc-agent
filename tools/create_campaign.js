@@ -257,6 +257,7 @@ async function createFullStructure(structure) {
 
 // ─── VALIDATE ONLY ───────────────────────────────────────────────────────────
 
+// 1. Кампанія — Meta validate_only
 async function validateCampaign(params) {
   const objective = OBJECTIVE_MAP[params.objective] || params.objective;
   const result = await apiPost(`${AD_ACCOUNT_ID}/campaigns`, {
@@ -270,10 +271,14 @@ async function validateCampaign(params) {
   return result;
 }
 
+// 2. Адсет — розширена локальна перевірка
 function validateAdset(params) {
-  // Meta требует реальный campaign_id даже для validate_only —
-  // делаем локальную проверку обязательных полей
   const errors = [];
+  const VALID_GOALS = ['REACH', 'IMPRESSIONS', 'LINK_CLICKS', 'LANDING_PAGE_VIEWS',
+    'OFFSITE_CONVERSIONS', 'LEAD_GENERATION', 'VALUE', 'QUALITY_LEAD'];
+  const VALID_PLATFORMS = ['facebook', 'instagram', 'audience_network', 'messenger'];
+
+  // Обов'язкові поля
   if (!params.name) errors.push('name обов\'язковий');
   if (!params.daily_budget) errors.push('daily_budget обов\'язковий');
   if (!params.optimization_goal) errors.push('optimization_goal обов\'язковий');
@@ -281,19 +286,44 @@ function validateAdset(params) {
   if (!params.end_time) errors.push('end_time обов\'язковий');
   if (!params.targeting || !params.targeting.geo_locations) errors.push('targeting.geo_locations обов\'язковий');
 
-  // Перевірка що end_time в майбутньому
-  if (params.end_time && new Date(params.end_time) < new Date()) {
-    errors.push(`end_time "${params.end_time}" — дата завершення в минулому`);
+  // Дати
+  const now = new Date();
+  const yesterday = new Date(now - 24 * 60 * 60 * 1000);
+  if (params.end_time && new Date(params.end_time) < now) {
+    errors.push(`дата завершення в минулому: ${params.end_time}`);
   }
-  // Перевірка що start_time не в далекому минулому (допустимо сьогодні)
-  if (params.start_time && new Date(params.start_time) < new Date(Date.now() - 24 * 60 * 60 * 1000)) {
-    errors.push(`start_time "${params.start_time}" — дата старту в минулому`);
+  if (params.start_time && new Date(params.start_time) < yesterday) {
+    errors.push(`дата старту в минулому: ${params.start_time}`);
+  }
+  if (params.start_time && params.end_time &&
+      new Date(params.end_time) <= new Date(params.start_time)) {
+    errors.push('end_time повинен бути після start_time');
   }
 
-  if (errors.length > 0) return { error: { message: errors.join(', ') } };
+  // Бюджет (мінімум 1000 = 10 UAH)
+  if (params.daily_budget && params.daily_budget < 1000) {
+    errors.push(`daily_budget ${params.daily_budget} занадто малий (мінімум 1000 = 10 UAH)`);
+  }
+
+  // Optimization goal
+  if (params.optimization_goal && !VALID_GOALS.includes(params.optimization_goal)) {
+    errors.push(`optimization_goal "${params.optimization_goal}" невалідний. Допустимі: ${VALID_GOALS.join(', ')}`);
+  }
+
+  // Publisher platforms
+  if (params.targeting && params.targeting.publisher_platforms) {
+    for (const p of params.targeting.publisher_platforms) {
+      if (!VALID_PLATFORMS.includes(p)) {
+        errors.push(`publisher_platform "${p}" невалідний. Допустимі: ${VALID_PLATFORMS.join(', ')}`);
+      }
+    }
+  }
+
+  if (errors.length > 0) return { error: { message: errors.join('; ') } };
   return { success: true };
 }
 
+// 3. Креатив — Meta validate_only
 async function validateAd(params) {
   const url = params.url ? params.url.split('?')[0] : 'https://apollo.online/clubs/';
   return await apiPost(`${AD_ACCOUNT_ID}/adcreatives`, {
@@ -310,14 +340,58 @@ async function validateAd(params) {
   });
 }
 
+// 4. Dropbox — перевірка доступності та наявності файлів (без завантаження)
+async function validateDropboxLink(dropboxLink) {
+  const axios = require('axios');
+  const DROPBOX_TOKEN = process.env.DROPBOX_ACCESS_TOKEN;
+  try {
+    const response = await axios.post(
+      'https://api.dropboxapi.com/2/files/list_folder',
+      { path: '', shared_link: { url: dropboxLink } },
+      {
+        headers: {
+          'Authorization': `Bearer ${DROPBOX_TOKEN}`,
+          'Content-Type': 'application/json'
+        },
+        timeout: 10000
+      }
+    );
+    const mediaFiles = response.data.entries.filter(f =>
+      f['.tag'] === 'file' && /\.(jpg|jpeg|png|mp4|mov)$/i.test(f.name)
+    );
+    return { ok: true, count: mediaFiles.length, files: mediaFiles.map(f => f.name) };
+  } catch (err) {
+    const msg = err.response?.data?.error_summary || err.message;
+    return { ok: false, error: msg };
+  }
+}
+
+// 5. URL — перевірка доступності
+function validateUrl(url) {
+  return new Promise((resolve) => {
+    try {
+      const client = url.startsWith('https') ? https : http;
+      const req = client.request(url, { method: 'HEAD', timeout: 8000 }, (res) => {
+        // 2xx або 3xx — OK
+        resolve({ ok: res.statusCode < 400, status: res.statusCode });
+      });
+      req.on('error', (e) => resolve({ ok: false, error: e.message }));
+      req.on('timeout', () => { req.destroy(); resolve({ ok: false, error: 'timeout' }); });
+      req.end();
+    } catch (e) {
+      resolve({ ok: false, error: e.message });
+    }
+  });
+}
+
 async function validateFullStructure(structure) {
-  console.log('\n🔍 ВАЛІДАЦІЯ СТРУКТУРИ (VALIDATE_ONLY)');
+  console.log('\n🔍 ВАЛІДАЦІЯ СТРУКТУРИ');
   console.log('=====================================');
 
   const errors = [];
   const autoFixed = [];
 
-  // 1. Кампания
+  // ── 1. Кампанія (Meta validate_only) ─────────────────
   const campResult = await validateCampaign(structure.campaign);
   if (campResult.error) {
     errors.push(`Кампанія: ${campResult.error.message}`);
@@ -326,56 +400,115 @@ async function validateFullStructure(structure) {
     console.log('✅ Кампанія валідна');
   }
 
-  // 2. Группы и объявления
+  // Збираємо унікальні URL та Dropbox посилання для пакетної перевірки
+  const urlsToCheck = new Set();
+  const dropboxLinksToCheck = new Map();
+
+  // ── 2. Групи і оголошення ─────────────────────────────
   for (const adset of structure.adsets) {
+    // Auto-fix
     if (adset.targeting && adset.targeting.threads_positions) {
       delete adset.targeting.threads_positions;
-      autoFixed.push(`Видалено threads_positions з групи ${adset.name}`);
+      autoFixed.push(`Видалено threads_positions з групи "${adset.name}"`);
     }
     if (!adset.targeting_automation) {
       adset.targeting_automation = { advantage_audience: 0 };
-      autoFixed.push(`Додано targeting_automation до групи ${adset.name}`);
+      autoFixed.push(`Додано targeting_automation до групи "${adset.name}"`);
     }
 
-    const adsetResult = await validateAdset(adset);
+    const adsetResult = validateAdset(adset);
     if (adsetResult.error) {
-      errors.push(`Група ${adset.name}: ${adsetResult.error.message}`);
-      console.log(`❌ Група ${adset.name}:`, adsetResult.error.message);
+      errors.push(`Група "${adset.name}": ${adsetResult.error.message}`);
+      console.log(`❌ Група "${adset.name}":`, adsetResult.error.message);
     } else {
-      console.log(`✅ Група ${adset.name} валідна`);
+      console.log(`✅ Група "${adset.name}" валідна`);
     }
 
     for (const ad of adset.ads) {
+      // Auto-fix UTM
       if (ad.url && ad.url.includes('utm_')) {
         ad.url = ad.url.split('?')[0];
-        autoFixed.push(`Прибрано UTM з URL об'явлення ${ad.name}`);
+        autoFixed.push(`Прибрано UTM з URL "${ad.name}"`);
       }
+
+      // Обов'язкові поля оголошення
       if (!ad.text || ad.text.trim() === '') {
-        errors.push(`Об'явлення ${ad.name}: відсутній текст`);
-        console.log(`❌ Об'явлення ${ad.name}: немає тексту`);
+        errors.push(`Оголошення "${ad.name}": відсутній текст`);
+        console.log(`❌ Оголошення "${ad.name}": немає тексту`);
         continue;
       }
+      if (!ad.headline || ad.headline.trim() === '') {
+        errors.push(`Оголошення "${ad.name}": відсутній заголовок`);
+        console.log(`❌ Оголошення "${ad.name}": немає заголовку`);
+        continue;
+      }
+      if (!ad.dropbox_link) {
+        errors.push(`Оголошення "${ad.name}": відсутній dropbox_link`);
+        console.log(`❌ Оголошення "${ad.name}": немає dropbox_link`);
+        continue;
+      }
+
+      // Збираємо для пакетної перевірки
+      if (ad.url) urlsToCheck.add(ad.url);
+      if (ad.dropbox_link && !dropboxLinksToCheck.has(ad.dropbox_link)) {
+        dropboxLinksToCheck.set(ad.dropbox_link, ad.name);
+      }
+
+      // Meta validate_only для креативу
       const adResult = await validateAd({ ...ad, page_id: structure.page_id });
       if (adResult.error) {
-        errors.push(`Об'явлення ${ad.name}: ${adResult.error.message}`);
-        console.log(`❌ Об'явлення ${ad.name}:`, adResult.error.message);
+        errors.push(`Оголошення "${ad.name}": ${adResult.error.message}`);
+        console.log(`❌ Оголошення "${ad.name}":`, adResult.error.message);
       } else {
-        console.log(`✅ Об'явлення ${ad.name} валідне`);
+        console.log(`✅ Оголошення "${ad.name}" валідне`);
       }
     }
   }
 
-  console.log('=====================================');
+  // ── 3. Перевірка Dropbox посилань ────────────────────
+  if (dropboxLinksToCheck.size > 0) {
+    console.log('\n📦 Перевіряю Dropbox посилання...');
+    for (const [link, adName] of dropboxLinksToCheck) {
+      const result = await validateDropboxLink(link);
+      if (!result.ok) {
+        errors.push(`Dropbox: папка недоступна — ${result.error}. Перевір посилання або оновіть токен.`);
+        console.log(`❌ Dropbox: ${result.error}`);
+      } else if (result.count === 0) {
+        errors.push(`Dropbox: папка порожня, не знайдено медіафайлів (jpg/png/mp4/mov)`);
+        console.log(`❌ Dropbox: 0 файлів у папці`);
+      } else {
+        const preview = result.files.slice(0, 3).join(', ') + (result.count > 3 ? '...' : '');
+        console.log(`✅ Dropbox: ${result.count} файлів (${preview})`);
+      }
+    }
+  }
+
+  // ── 4. Перевірка URL ─────────────────────────────────
+  if (urlsToCheck.size > 0) {
+    console.log('\n🔗 Перевіряю URL...');
+    for (const url of urlsToCheck) {
+      const result = await validateUrl(url);
+      if (!result.ok) {
+        errors.push(`URL недоступний: ${url} (${result.error || result.status})`);
+        console.log(`❌ URL: ${url} → ${result.error || result.status}`);
+      } else {
+        console.log(`✅ URL: ${url} → ${result.status}`);
+      }
+    }
+  }
+
+  // ── ПІДСУМОК ─────────────────────────────────────────
+  console.log('\n=====================================');
   if (autoFixed.length > 0) {
-    console.log('\n🔧 Автоматично виправлено:');
+    console.log('🔧 Автоматично виправлено:');
     autoFixed.forEach(f => console.log('  -', f));
   }
   if (errors.length > 0) {
-    console.log('\n❌ Знайдено помилок:', errors.length);
+    console.log(`\n❌ Знайдено помилок: ${errors.length}`);
     errors.forEach(e => console.log('  -', e));
     return { valid: false, errors, autoFixed, structure };
   }
-  console.log('\n✅ Структура повністю валідна');
+  console.log('\n✅ Структура повністю валідна — можна публікувати');
   return { valid: true, autoFixed, structure };
 }
 
