@@ -281,6 +281,15 @@ function validateAdset(params) {
   if (!params.end_time) errors.push('end_time обов\'язковий');
   if (!params.targeting || !params.targeting.geo_locations) errors.push('targeting.geo_locations обов\'язковий');
 
+  // Перевірка що end_time в майбутньому
+  if (params.end_time && new Date(params.end_time) < new Date()) {
+    errors.push(`end_time "${params.end_time}" — дата завершення в минулому`);
+  }
+  // Перевірка що start_time не в далекому минулому (допустимо сьогодні)
+  if (params.start_time && new Date(params.start_time) < new Date(Date.now() - 24 * 60 * 60 * 1000)) {
+    errors.push(`start_time "${params.start_time}" — дата старту в минулому`);
+  }
+
   if (errors.length > 0) return { error: { message: errors.join(', ') } };
   return { success: true };
 }
