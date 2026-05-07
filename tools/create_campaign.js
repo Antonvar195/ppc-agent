@@ -255,6 +255,86 @@ async function createFullStructure(structure) {
   return results;
 }
 
+// ─── GEO MAPPING ─────────────────────────────────────────────────────────────
+
+// Маппинг украинских городов → правильный формат Meta API
+const UA_CITY_GEO = {
+  // Ключ: варианты написания, значение: правильный geo_locations объект
+  'київ':        { regions: [{ key: '4290' }] },
+  'kyiv':        { regions: [{ key: '4290' }] },
+  'kiev':        { regions: [{ key: '4290' }] },
+  'львів':       { cities: [{ key: '2378495' }] },
+  'lviv':        { cities: [{ key: '2378495' }] },
+  'одеса':       { cities: [{ key: '2384095' }] },
+  'odessa':      { cities: [{ key: '2384095' }] },
+  'odesa':       { cities: [{ key: '2384095' }] },
+  'харків':      { cities: [{ key: '2372604' }] },
+  'kharkiv':     { cities: [{ key: '2372604' }] },
+  'дніпро':      { cities: [{ key: '2367397' }] },
+  'dnipro':      { cities: [{ key: '2367397' }] },
+  'запоріжжя':   { cities: [{ key: '2400115' }] },
+  'zaporizhzhia':{ cities: [{ key: '2400115' }] },
+  'вінниця':     { cities: [{ key: '2397330' }] },
+  'vinnytsia':   { cities: [{ key: '2397330' }] },
+  'херсон':      { cities: [{ key: '2372649' }] },
+  'kherson':     { cities: [{ key: '2372649' }] },
+  'чернівці':    { cities: [{ key: '2366058' }] },
+  'chernivtsi':  { cities: [{ key: '2366058' }] },
+  'полтава':     { cities: [{ key: '2387014' }] },
+  'poltava':     { cities: [{ key: '2387014' }] },
+  'суми':        { cities: [{ key: '2393546' }] },
+  'sumy':        { cities: [{ key: '2393546' }] },
+  'черкаси':     { cities: [{ key: '2365955' }] },
+  'cherkasy':    { cities: [{ key: '2365955' }] },
+  'житомир':     { cities: [{ key: '2401072' }] },
+  'zhytomyr':    { cities: [{ key: '2401072' }] },
+  'ужгород':     { cities: [{ key: '2395916' }] },
+  'uzhhorod':    { cities: [{ key: '2395916' }] },
+};
+
+// Авто-фикс: конвертируем custom_locations → правильный формат
+// Claude може класти custom_locations або всередину geo_locations, або на верхній рівень
+function fixGeoLocations(targeting, adsetName, autoFixed) {
+  const hasTopLevel = targeting && targeting.custom_locations;
+  const hasNested = targeting && targeting.geo_locations && targeting.geo_locations.custom_locations;
+  if (!hasTopLevel && !hasNested) return targeting;
+
+  const locs = hasNested ? targeting.geo_locations.custom_locations : targeting.custom_locations;
+  const regions = [];
+  const cities = [];
+  const unmapped = [];
+
+  for (const loc of locs) {
+    const cityName = (loc.name || '').toLowerCase().replace(/[,.']/g, '').trim().split(' ')[0];
+    const mapped = UA_CITY_GEO[cityName];
+    if (mapped) {
+      if (mapped.regions) regions.push(...mapped.regions);
+      if (mapped.cities) cities.push(...mapped.cities);
+      autoFixed.push(`Конвертовано geo "${loc.name}" → правильний формат Meta API`);
+    } else {
+      unmapped.push(loc.name || JSON.stringify(loc));
+    }
+  }
+
+  // Будуємо правильний targeting
+  const fixed = { ...targeting };
+  delete fixed.custom_locations; // прибираємо з верхнього рівня
+
+  const geoLocations = { ...(targeting.geo_locations || {}) };
+  delete geoLocations.custom_locations; // прибираємо з geo_locations
+
+  if (unmapped.length > 0) {
+    autoFixed.push(`Невідомі міста (${unmapped.join(', ')}) → замінено на countries: ["UA"]`);
+    geoLocations.countries = ['UA'];
+  } else {
+    if (regions.length > 0) geoLocations.regions = regions;
+    if (cities.length > 0) geoLocations.cities = cities;
+  }
+
+  fixed.geo_locations = geoLocations;
+  return fixed;
+}
+
 // ─── VALIDATE ONLY ───────────────────────────────────────────────────────────
 
 // 1. Кампанія — Meta validate_only
@@ -414,6 +494,13 @@ async function validateFullStructure(structure) {
     if (!adset.targeting_automation) {
       adset.targeting_automation = { advantage_audience: 0 };
       autoFixed.push(`Додано targeting_automation до групи "${adset.name}"`);
+    }
+    // Auto-fix custom_locations → правильний формат Meta API
+    if (adset.targeting && (
+      adset.targeting.custom_locations ||
+      adset.targeting.geo_locations?.custom_locations
+    )) {
+      adset.targeting = fixGeoLocations(adset.targeting, adset.name, autoFixed);
     }
 
     const adsetResult = validateAdset(adset);

@@ -118,6 +118,32 @@ ${ctx.validator}
   }
 }
 
+КРИТИЧНО — ФОРМАТ geo_locations:
+НЕ використовуй custom_locations, primary_city_id або будь-які інші формати гео.
+ТІЛЬКИ такі варіанти:
+
+Всі міста України:
+  "geo_locations": {"countries": ["UA"]}
+
+Конкретні міста (використовуй ТОЧНО ці ключі):
+  Київ:         "geo_locations": {"regions": [{"key": "4290"}]}
+  Львів:        "geo_locations": {"cities": [{"key": "2378495"}]}
+  Одеса:        "geo_locations": {"cities": [{"key": "2384095"}]}
+  Харків:       "geo_locations": {"cities": [{"key": "2372604"}]}
+  Дніпро:       "geo_locations": {"cities": [{"key": "2367397"}]}
+  Запоріжжя:    "geo_locations": {"cities": [{"key": "2400115"}]}
+  Вінниця:      "geo_locations": {"cities": [{"key": "2397330"}]}
+  Херсон:       "geo_locations": {"cities": [{"key": "2372649"}]}
+  Чернівці:     "geo_locations": {"cities": [{"key": "2366058"}]}
+  Полтава:      "geo_locations": {"cities": [{"key": "2387014"}]}
+  Суми:         "geo_locations": {"cities": [{"key": "2393546"}]}
+  Черкаси:      "geo_locations": {"cities": [{"key": "2365955"}]}
+  Житомир:      "geo_locations": {"cities": [{"key": "2401072"}]}
+  Ужгород:      "geo_locations": {"cities": [{"key": "2395916"}]}
+
+Кілька міст одночасно:
+  "geo_locations": {"cities": [{"key": "2378495"}, {"key": "2384095"}]}
+
 ВАЖЛИВО щодо Dropbox:
 - Користувач дає посилання на папку Dropbox (shared link)
 - НЕ вимагай прямих посилань на зображення
