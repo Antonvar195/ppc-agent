@@ -114,12 +114,17 @@ async function createAd(adsetId, params) {
   const results = [];
 
   if (params.dropbox_link) {
+    // Приєднуємо UTM до URL якщо є
+    const urlWithUtm = params.utm
+      ? params.url + (params.url.includes('?') ? '&' : '?') + params.utm
+      : params.url;
+
     // Получаем все specs, сгруппированные по креативам
     const creativeSpecs = await buildAllCreativeSpecs(
       params.dropbox_link,
       params.text || 'Apollo Next — фітнес для всіх',
       params.headline || 'Спробуй Apollo Next',
-      params.url
+      urlWithUtm
     );
 
     // Создаём одно объявление на каждый креатив
