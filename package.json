@@ -4,6 +4,7 @@
   "description": "PPC Agent — Apollo Next",
   "main": "index.js",
   "scripts": {
+    "start": "node index.js",
     "test": "node tools/test.js",
     "bot": "node bot/telegram_bot.js"
   },
