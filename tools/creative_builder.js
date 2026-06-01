@@ -6,6 +6,17 @@ require('dotenv').config();
 
 const AD_ACCOUNT_ID = process.env.META_AD_ACCOUNT_ID;
 const DROPBOX_TOKEN = process.env.DROPBOX_ACCESS_TOKEN;
+const INSTAGRAM_ACTOR_ID = process.env.META_INSTAGRAM_ACTOR_ID;
+
+function stripUtmParams(url) {
+  try {
+    const u = new URL(url);
+    ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term'].forEach(p => u.searchParams.delete(p));
+    return u.toString();
+  } catch (e) {
+    return url;
+  }
+}
 
 // Скачать файл из Dropbox shared folder → буфер
 async function downloadFromSharedFolder(sharedFolderUrl, fileName) {
@@ -155,24 +166,33 @@ async function createAdWithAssets(adsetId, adName, assetFeedSpec, pageId) {
     const firstImage = assetFeedSpec.images?.[0];
     if (!firstImage) throw new Error('Немає зображень для fallback');
 
+    const rawUrl = assetFeedSpec.link_urls[0].website_url;
+    const cleanUrl = stripUtmParams(rawUrl);
+
+    const objectStorySpec = {
+      page_id: pageId,
+      link_data: {
+        link: cleanUrl,
+        message: assetFeedSpec.bodies[0].text,
+        name: assetFeedSpec.titles[0].text,
+        image_hash: firstImage.hash,
+        call_to_action: {
+          type: 'LEARN_MORE',
+          value: { link: rawUrl }
+        }
+      }
+    };
+    if (INSTAGRAM_ACTOR_ID) objectStorySpec.instagram_actor_id = INSTAGRAM_ACTOR_ID;
+
+    console.log('  object_story_spec:', JSON.stringify(objectStorySpec, null, 2));
+
     const fallbackCreative = await apiPost(`${AD_ACCOUNT_ID}/adcreatives`, {
       name: adName + '_creative',
-      object_story_spec: JSON.stringify({
-        page_id: pageId,
-        link_data: {
-          link: assetFeedSpec.link_urls[0].website_url,
-          message: assetFeedSpec.bodies[0].text,
-          name: assetFeedSpec.titles[0].text,
-          image_hash: firstImage.hash,
-          call_to_action: {
-            type: 'LEARN_MORE',
-            value: { link: assetFeedSpec.link_urls[0].website_url }
-          }
-        }
-      })
+      object_story_spec: JSON.stringify(objectStorySpec)
     });
 
     if (fallbackCreative.error) {
+      console.log('  Fallback error details:', JSON.stringify(fallbackCreative.error));
       throw new Error(`Fallback creative: ${fallbackCreative.error.message}`);
     }
 

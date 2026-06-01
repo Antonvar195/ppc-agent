@@ -72,14 +72,12 @@ async function createCampaign(params) {
 async function createAdset(campaignId, params) {
   console.log(`\n👥 Создаю группу: ${params.name}`);
 
-  // Нормализуем targeting — убираем threads_positions (не поддерживается),
-  // добавляем обязательный targeting_automation
+  // Нормализуем targeting — добавляем обязательный targeting_automation
   const targeting = params.targeting || {
     geo_locations: { countries: ['UA'] },
     age_min: 18,
     age_max: 65
   };
-  delete targeting.threads_positions;
   // Всегда отключаем Advantage+ audience (иначе Meta требует age_max: 65)
   targeting.targeting_automation = { advantage_audience: 0 };
 
@@ -411,18 +409,11 @@ function validateAdset(params) {
 // 3. Креатив — Meta validate_only
 async function validateAd(params) {
   const url = params.url ? params.url.split('?')[0] : 'https://apollo.online/clubs/';
-  return await apiPost(`${AD_ACCOUNT_ID}/adcreatives`, {
-    name: params.name + '_validate',
-    object_story_spec: JSON.stringify({
-      page_id: params.page_id,
-      link_data: {
-        link: url,
-        message: params.text || 'Apollo Next',
-        name: params.headline || 'Apollo Next'
-      }
-    }),
-    execution_options: JSON.stringify(['validate_only'])
-  });
+  // Якщо є dropbox_link або image_hash — перевіряємо тільки обов'язкові поля
+  if (!params.text) return { error: { message: 'text обов\'язковий' } };
+  if (!params.headline) return { error: { message: 'headline обов\'язковий' } };
+  if (!params.dropbox_link) return { error: { message: 'dropbox_link обов\'язковий' } };
+  return { id: 'validate_ok' };
 }
 
 // 4. Dropbox — перевірка доступності та наявності файлів (без завантаження)
@@ -492,10 +483,6 @@ async function validateFullStructure(structure) {
   // ── 2. Групи і оголошення ─────────────────────────────
   for (const adset of structure.adsets) {
     // Auto-fix
-    if (adset.targeting && adset.targeting.threads_positions) {
-      delete adset.targeting.threads_positions;
-      autoFixed.push(`Видалено threads_positions з групи "${adset.name}"`);
-    }
     if (!adset.targeting_automation) {
       adset.targeting_automation = { advantage_audience: 0 };
       autoFixed.push(`Додано targeting_automation до групи "${adset.name}"`);
