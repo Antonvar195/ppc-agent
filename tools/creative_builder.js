@@ -182,8 +182,6 @@ async function createAdWithAssets(adsetId, adName, assetFeedSpec, pageId) {
         }
       }
     };
-    if (INSTAGRAM_ACTOR_ID) objectStorySpec.instagram_actor_id = INSTAGRAM_ACTOR_ID;
-
     console.log('  object_story_spec:', JSON.stringify(objectStorySpec, null, 2));
 
     const fallbackCreative = await apiPost(`${AD_ACCOUNT_ID}/adcreatives`, {
