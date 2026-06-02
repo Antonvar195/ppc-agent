@@ -20,18 +20,19 @@ function stripUtmParams(url) {
 
 // Скачать файл из Dropbox shared folder → буфер
 async function downloadFromSharedFolder(sharedFolderUrl, fileName) {
-  const response = await axios({
+  const { dropboxRequest } = require('./dropbox_reader');
+  const response = await dropboxRequest(token => axios({
     method: 'post',
     url: 'https://content.dropboxapi.com/2/sharing/get_shared_link_file',
     headers: {
-      'Authorization': `Bearer ${DROPBOX_TOKEN}`,
+      'Authorization': `Bearer ${token}`,
       'Dropbox-API-Arg': JSON.stringify({ url: sharedFolderUrl, path: '/' + fileName }),
       'Content-Type': ''
     },
     data: '',
     responseType: 'arraybuffer',
     maxContentLength: 50 * 1024 * 1024
-  });
+  }));
   return Buffer.from(response.data);
 }
 

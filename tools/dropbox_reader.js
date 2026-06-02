@@ -2,20 +2,58 @@ const axios = require('axios');
 const { imageSize } = require('image-size');
 require('dotenv').config();
 
-const DROPBOX_TOKEN = process.env.DROPBOX_ACCESS_TOKEN;
+let DROPBOX_TOKEN = process.env.DROPBOX_ACCESS_TOKEN;
+
+// Оновити access token через refresh token
+async function refreshDropboxToken() {
+  const appKey = process.env.DROPBOX_APP_KEY;
+  const appSecret = process.env.DROPBOX_APP_SECRET;
+  const refreshToken = process.env.DROPBOX_REFRESH_TOKEN;
+  if (!refreshToken) return false;
+  try {
+    const auth = Buffer.from(appKey + ':' + appSecret).toString('base64');
+    const res = await axios.post('https://api.dropbox.com/oauth2/token',
+      new URLSearchParams({ grant_type: 'refresh_token', refresh_token: refreshToken }).toString(),
+      { headers: { 'Authorization': 'Basic ' + auth, 'Content-Type': 'application/x-www-form-urlencoded' } }
+    );
+    DROPBOX_TOKEN = res.data.access_token;
+    process.env.DROPBOX_ACCESS_TOKEN = DROPBOX_TOKEN;
+    console.log('🔄 Dropbox token refreshed');
+    return true;
+  } catch (e) {
+    console.log('❌ Dropbox refresh failed:', e.response?.data || e.message);
+    return false;
+  }
+}
+
+// Виконати запит з авто-оновленням при expired/invalid token
+async function dropboxRequest(fn) {
+  try {
+    return await fn(DROPBOX_TOKEN);
+  } catch (e) {
+    const status = e.response?.status;
+    const errTag = e.response?.data?.error?.['.tag'];
+    const errSummary = e.response?.data?.error_summary || '';
+    const isAuthError = status === 401 ||
+      errTag === 'expired_access_token' ||
+      errSummary.includes('expired_access_token') ||
+      errSummary.includes('invalid_access_token');
+    if (isAuthError) {
+      console.log('🔄 Dropbox auth error, refreshing token...');
+      const ok = await refreshDropboxToken();
+      if (ok) return await fn(DROPBOX_TOKEN);
+    }
+    throw e;
+  }
+}
 
 // Получить список файлов в папке Dropbox
 async function listFolder(folderPath) {
-  const response = await axios.post(
+  const response = await dropboxRequest(token => axios.post(
     'https://api.dropboxapi.com/2/files/list_folder',
     { path: folderPath, recursive: false },
-    {
-      headers: {
-        'Authorization': `Bearer ${DROPBOX_TOKEN}`,
-        'Content-Type': 'application/json'
-      }
-    }
-  );
+    { headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' } }
+  ));
 
   return response.data.entries.filter(f =>
     f['.tag'] === 'file' &&
@@ -104,19 +142,11 @@ function sharedLinkToPath(sharedLink) {
 
 // Получить список файлов по shared link папки
 async function listFolderBySharedLink(sharedLink) {
-  const response = await axios.post(
+  const response = await dropboxRequest(token => axios.post(
     'https://api.dropboxapi.com/2/files/list_folder',
-    {
-      path: '',
-      shared_link: { url: sharedLink }
-    },
-    {
-      headers: {
-        'Authorization': `Bearer ${DROPBOX_TOKEN}`,
-        'Content-Type': 'application/json'
-      }
-    }
-  );
+    { path: '', shared_link: { url: sharedLink } },
+    { headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' } }
+  ));
 
   const mediaFiles = response.data.entries.filter(f =>
     f['.tag'] === 'file' &&
@@ -134,22 +164,18 @@ async function listFolderBySharedLink(sharedLink) {
 
       if (!/\.(mp4|mov)$/i.test(file.name)) {
         try {
-          // Скачиваем через sharing/get_shared_link_file (требует sharing.read scope)
-          const fileResponse = await axios({
+          const fileResponse = await dropboxRequest(token => axios({
             method: 'post',
             url: 'https://content.dropboxapi.com/2/sharing/get_shared_link_file',
             headers: {
-              'Authorization': `Bearer ${DROPBOX_TOKEN}`,
-              'Dropbox-API-Arg': JSON.stringify({
-                url: sharedLink,
-                path: '/' + file.name
-              }),
+              'Authorization': `Bearer ${token}`,
+              'Dropbox-API-Arg': JSON.stringify({ url: sharedLink, path: '/' + file.name }),
               'Content-Type': ''
             },
             data: '',
             responseType: 'arraybuffer',
             maxContentLength: 50 * 1024 * 1024
-          });
+          }));
           const buffer = Buffer.from(fileResponse.data);
           format = detectFormatByDimensions(buffer, file.name);
         } catch (downloadErr) {
@@ -204,5 +230,7 @@ module.exports = {
   downloadFile,
   detectFormat,
   detectFormatByDimensions,
-  sharedLinkToPath
+  sharedLinkToPath,
+  dropboxRequest,
+  refreshDropboxToken
 };
