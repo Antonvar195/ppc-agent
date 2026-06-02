@@ -419,19 +419,13 @@ async function validateAd(params) {
 // 4. Dropbox — перевірка доступності та наявності файлів (без завантаження)
 async function validateDropboxLink(dropboxLink) {
   const axios = require('axios');
-  const DROPBOX_TOKEN = process.env.DROPBOX_ACCESS_TOKEN;
+  const { dropboxRequest } = require('./dropbox_reader');
   try {
-    const response = await axios.post(
+    const response = await dropboxRequest(token => axios.post(
       'https://api.dropboxapi.com/2/files/list_folder',
       { path: '', shared_link: { url: dropboxLink } },
-      {
-        headers: {
-          'Authorization': `Bearer ${DROPBOX_TOKEN}`,
-          'Content-Type': 'application/json'
-        },
-        timeout: 10000
-      }
-    );
+      { headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }, timeout: 10000 }
+    ));
     const mediaFiles = response.data.entries.filter(f =>
       f['.tag'] === 'file' && /\.(jpg|jpeg|png|mp4|mov)$/i.test(f.name)
     );
