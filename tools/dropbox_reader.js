@@ -32,12 +32,11 @@ async function dropboxRequest(fn) {
     return await fn(DROPBOX_TOKEN);
   } catch (e) {
     const status = e.response?.status;
-    const errTag = e.response?.data?.error?.['.tag'];
-    const errSummary = e.response?.data?.error_summary || '';
-    const isAuthError = status === 401 ||
-      errTag === 'expired_access_token' ||
-      errSummary.includes('expired_access_token') ||
-      errSummary.includes('invalid_access_token');
+    const body = JSON.stringify(e.response?.data || '');
+    const isAuthError = status === 401 || status === 409 ||
+      body.includes('expired_access_token') ||
+      body.includes('invalid_access_token') ||
+      body.includes('AuthError');
     if (isAuthError) {
       console.log('🔄 Dropbox auth error, refreshing token...');
       const ok = await refreshDropboxToken();
