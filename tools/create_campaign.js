@@ -460,41 +460,25 @@ async function validateAd(params) {
 // 4. Dropbox — перевірка доступності та наявності файлів (без завантаження)
 async function validateDropboxLink(dropboxLink) {
   const axios = require('axios');
-  const { refreshDropboxToken } = require('./dropbox_reader');
+  const { dropboxRequest, refreshDropboxToken } = require('./dropbox_reader');
 
-  // Перевіряємо чи є refresh credentials
-  const hasRefreshCreds = process.env.DROPBOX_REFRESH_TOKEN &&
-    process.env.DROPBOX_APP_KEY && process.env.DROPBOX_APP_SECRET;
-
-  if (!hasRefreshCreds) {
-    return {
-      ok: false,
-      error: 'Відсутні DROPBOX_APP_KEY / DROPBOX_APP_SECRET / DROPBOX_REFRESH_TOKEN у змінних середовища Railway. Додай їх у Railway → Variables.'
-    };
-  }
-
-  const refreshed = await refreshDropboxToken();
-  if (!refreshed) {
-    return {
-      ok: false,
-      error: 'Не вдалося оновити Dropbox токен через refresh token. Перевір значення DROPBOX_APP_KEY / DROPBOX_APP_SECRET / DROPBOX_REFRESH_TOKEN на Railway.'
-    };
-  }
-
-  const token = process.env.DROPBOX_ACCESS_TOKEN;
+  // Завжди примусово оновлюємо токен перед перевіркою
+  await refreshDropboxToken();
 
   try {
-    const response = await axios.post(
+    // Використовуємо dropboxRequest — він сам retry з refresh при auth помилці
+    const response = await dropboxRequest(token => axios.post(
       'https://api.dropboxapi.com/2/files/list_folder',
       { path: '', shared_link: { url: dropboxLink } },
       { headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }, timeout: 10000 }
-    );
+    ));
     const mediaFiles = response.data.entries.filter(f =>
       f['.tag'] === 'file' && /\.(jpg|jpeg|png|mp4|mov)$/i.test(f.name)
     );
     return { ok: true, count: mediaFiles.length, files: mediaFiles.map(f => f.name) };
   } catch (err) {
     const msg = err.response?.data?.error_summary || err.message;
+    console.log('validateDropboxLink error:', msg);
     return { ok: false, error: msg };
   }
 }
