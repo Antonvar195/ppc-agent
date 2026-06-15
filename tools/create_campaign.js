@@ -462,8 +462,25 @@ async function validateDropboxLink(dropboxLink) {
   const axios = require('axios');
   const { refreshDropboxToken } = require('./dropbox_reader');
 
-  // Завжди оновлюємо токен перед запитом
-  await refreshDropboxToken();
+  // Перевіряємо чи є refresh credentials
+  const hasRefreshCreds = process.env.DROPBOX_REFRESH_TOKEN &&
+    process.env.DROPBOX_APP_KEY && process.env.DROPBOX_APP_SECRET;
+
+  if (!hasRefreshCreds) {
+    return {
+      ok: false,
+      error: 'Відсутні DROPBOX_APP_KEY / DROPBOX_APP_SECRET / DROPBOX_REFRESH_TOKEN у змінних середовища Railway. Додай їх у Railway → Variables.'
+    };
+  }
+
+  const refreshed = await refreshDropboxToken();
+  if (!refreshed) {
+    return {
+      ok: false,
+      error: 'Не вдалося оновити Dropbox токен через refresh token. Перевір значення DROPBOX_APP_KEY / DROPBOX_APP_SECRET / DROPBOX_REFRESH_TOKEN на Railway.'
+    };
+  }
+
   const token = process.env.DROPBOX_ACCESS_TOKEN;
 
   try {
