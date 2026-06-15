@@ -27,8 +27,12 @@ bot.onText(/\/start/, (msg) => {
 });
 
 // Діагностика Dropbox
-bot.onText(/\/dbtest/, async (msg) => {
-  if (!isAllowed(msg.from.id)) return;
+bot.onText(/\/dbtest/, (msg) => {
+  console.log('🔍 /dbtest received from', msg.from.id);
+  if (!isAllowed(msg.from.id)) {
+    console.log('🔍 /dbtest blocked — not allowed user');
+    return;
+  }
   const chatId = msg.chat.id;
 
   const appKey = process.env.DROPBOX_APP_KEY;
@@ -36,32 +40,29 @@ bot.onText(/\/dbtest/, async (msg) => {
   const refreshToken = process.env.DROPBOX_REFRESH_TOKEN;
   const currentToken = process.env.DROPBOX_ACCESS_TOKEN;
 
-  let report = '🔍 Dropbox діагностика\n\n';
-  report += `APP_KEY: ${appKey ? appKey.substring(0, 5) + '...' : '❌ ВІДСУТНІЙ'}\n`;
-  report += `APP_SECRET: ${appSecret ? appSecret.substring(0, 5) + '...' : '❌ ВІДСУТНІЙ'}\n`;
-  report += `REFRESH_TOKEN: ${refreshToken ? refreshToken.substring(0, 10) + '...' : '❌ ВІДСУТНІЙ'}\n`;
-  report += `ACCESS_TOKEN: ${currentToken ? currentToken.substring(0, 15) + '...' : '❌ ВІДСУТНІЙ'}\n\n`;
+  const report =
+    '🔍 Dropbox env vars:\n' +
+    `APP_KEY: ${appKey ? '✅ ' + appKey.substring(0, 5) + '...' : '❌ ВІДСУТНІЙ'}\n` +
+    `APP_SECRET: ${appSecret ? '✅ ' + appSecret.substring(0, 5) + '...' : '❌ ВІДСУТНІЙ'}\n` +
+    `REFRESH_TOKEN: ${refreshToken ? '✅ ' + refreshToken.substring(0, 10) + '...' : '❌ ВІДСУТНІЙ'}\n` +
+    `ACCESS_TOKEN: ${currentToken ? '✅ ' + currentToken.substring(0, 15) + '...' : '❌ ВІДСУТНІЙ'}`;
 
-  await bot.sendMessage(chatId, report);
-
-  if (!refreshToken || !appKey || !appSecret) {
-    await bot.sendMessage(chatId, '❌ Відсутні env vars — додай на Railway');
-    return;
-  }
-
-  await bot.sendMessage(chatId, '🔄 Тестую refresh...');
-  try {
-    const { refreshDropboxToken } = require('../tools/dropbox_reader');
-    const ok = await refreshDropboxToken();
-    const newToken = process.env.DROPBOX_ACCESS_TOKEN;
-    if (ok) {
-      await bot.sendMessage(chatId, `✅ Refresh OK!\nНовий токен: ${newToken.substring(0, 20)}...`);
-    } else {
-      await bot.sendMessage(chatId, '❌ Refresh повернув false\nПеревір точні значення vars (без зайвих пробілів)');
+  bot.sendMessage(chatId, report).then(() => {
+    if (!refreshToken || !appKey || !appSecret) {
+      return bot.sendMessage(chatId, '❌ Vars відсутні на Railway');
     }
-  } catch (e) {
-    await bot.sendMessage(chatId, `❌ Refresh exception: ${e.message}`);
-  }
+    bot.sendMessage(chatId, '🔄 Тестую refresh...').then(() => {
+      const { refreshDropboxToken } = require('../tools/dropbox_reader');
+      refreshDropboxToken().then(ok => {
+        const newToken = process.env.DROPBOX_ACCESS_TOKEN || '';
+        if (ok) {
+          bot.sendMessage(chatId, '✅ Refresh OK!\nНовий токен: ' + newToken.substring(0, 20) + '...');
+        } else {
+          bot.sendMessage(chatId, '❌ Refresh = false\nВари є але refresh не вийшов. Перевір точні значення.');
+        }
+      }).catch(e => bot.sendMessage(chatId, '❌ Refresh error: ' + e.message));
+    });
+  }).catch(e => console.log('dbtest sendMessage error:', e.message));
 });
 
 // Помощь
