@@ -125,6 +125,11 @@ async function createAd(adsetId, params) {
       urlWithUtm
     );
 
+    if (creativeSpecs.length === 0) {
+      console.log('⚠️ buildAllCreativeSpecs повернув 0 специфікацій — немає чого публікувати');
+      return results;
+    }
+
     // Создаём одно объявление на каждый креатив
     for (const { creativeId, spec } of creativeSpecs) {
       const adName = params.name.replace(/\d+$/, '') + creativeId;

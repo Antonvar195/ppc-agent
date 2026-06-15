@@ -285,7 +285,8 @@ async function publishStructure(structure) {
     campaign_name: structure.campaign.name,
     campaign_id: result.campaign_id,
     adsets: result.adsets,
-    ads: result.ads
+    ads: result.ads,
+    errors: result.errors || []
   };
 }
 

@@ -143,6 +143,13 @@ async function handleApproval(chatId, userId, text) {
 
       report += `\n📄 Объявлений: ${result.ads.length}\n`;
       report += '⏸️ Статус: PAUSED\n\n';
+
+      if (result.errors && result.errors.length > 0) {
+        report += `\n⚠️ Помилки (${result.errors.length}):\n`;
+        result.errors.forEach(e => { report += `• ${e}\n`; });
+        report += '\n';
+      }
+
       report += '🔗 <a href="https://business.facebook.com/adsmanager">Открыть Ads Manager</a>';
 
       await bot.sendMessage(chatId, report, {

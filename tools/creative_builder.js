@@ -104,6 +104,10 @@ async function buildSpecForGroup(files, adText, adHeadline, destinationUrl) {
     }
   }
 
+  if (images.length === 0 && videos.length === 0) {
+    throw new Error(`Не вдалося завантажити жодного медіафайлу для групи (${files.map(f => f.name).join(', ')})`);
+  }
+
   const spec = {
     bodies: [{ text: adText }],
     titles: [{ text: adHeadline }],
