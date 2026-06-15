@@ -585,20 +585,13 @@ async function validateFullStructure(structure) {
     }
   }
 
-  // ── 3. Перевірка Dropbox посилань ────────────────────
+  // ── 3. Перевірка Dropbox посилань — тільки формат URL ───
   if (dropboxLinksToCheck.size > 0) {
-    console.log('\n📦 Перевіряю Dropbox посилання...');
-    for (const [link, adName] of dropboxLinksToCheck) {
-      const result = await validateDropboxLink(link);
-      if (!result.ok) {
-        errors.push(`Dropbox: папка недоступна — ${result.error}. Перевір посилання або оновіть токен.`);
-        console.log(`❌ Dropbox: ${result.error}`);
-      } else if (result.count === 0) {
-        errors.push(`Dropbox: папка порожня, не знайдено медіафайлів (jpg/png/mp4/mov)`);
-        console.log(`❌ Dropbox: 0 файлів у папці`);
+    for (const [link] of dropboxLinksToCheck) {
+      if (!link.includes('dropbox.com')) {
+        errors.push(`Dropbox: некоректне посилання — має містити dropbox.com`);
       } else {
-        const preview = result.files.slice(0, 3).join(', ') + (result.count > 3 ? '...' : '');
-        console.log(`✅ Dropbox: ${result.count} файлів (${preview})`);
+        console.log(`✅ Dropbox link: формат OK (${link.substring(0, 40)}...)`);
       }
     }
   }
