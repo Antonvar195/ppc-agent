@@ -150,19 +150,29 @@ async function handleApproval(chatId, userId, text) {
       report += `\n📄 Объявлений: ${result.ads.length}\n`;
       report += '⏸️ Статус: PAUSED\n\n';
 
-      report += '🔗 <a href="https://business.facebook.com/adsmanager">Открыть Ads Manager</a>';
+      // Завжди показуємо сирі помилки якщо є
+      if (result.errors && result.errors.length > 0) {
+        report += `\n\n⚠️ Помилки (${result.errors.length}):\n`;
+        result.errors.forEach(e => { report += `• ${e}\n`; });
+      }
+
+      report += '\n🔗 <a href="https://business.facebook.com/adsmanager">Открыть Ads Manager</a>';
 
       await bot.sendMessage(chatId, report, {
         parse_mode: 'HTML',
         disable_web_page_preview: true
       });
 
-      // Якщо є провалені групи — запускаємо аналіз помилок
+      // Якщо є провалені групи — запускаємо аналіз
       if (result.failed_adsets && result.failed_adsets.length > 0) {
         await bot.sendMessage(chatId, '🔍 Аналізую помилки...');
         try {
           const { analyzeErrors } = require('./orchestrator');
           const analysis = await analyzeErrors(result.failed_adsets, result.campaign_objective);
+
+          if (!analysis || !analysis.fixed_adsets) {
+            throw new Error('AI не повернув виправлені параметри');
+          }
 
           sessions[userId] = {
             state: 'awaiting_error_fix',
@@ -172,14 +182,19 @@ async function handleApproval(chatId, userId, text) {
             fixedAdsets: analysis.fixed_adsets
           };
 
-          let errorMsg = `⚠️ <b>Не вдалося створити ${result.failed_adsets.length} груп(и)</b>\n\n`;
-          errorMsg += `<b>Причина:</b> ${analysis.explanation}\n\n`;
-          errorMsg += `<b>💡 Пропоную:</b> ${analysis.proposed_fix}\n\n`;
-          errorMsg += 'Відповідай:\n✅ <b>так</b> — застосувати і повторити\n❌ <b>ні</b> — скасувати\n💬 або напиши своє рішення';
+          // Не використовуємо HTML — може містити спецсимволи
+          const errorMsg =
+            `⚠️ Не вдалося створити ${result.failed_adsets.length} груп(и)\n\n` +
+            `Причина: ${analysis.explanation}\n\n` +
+            `💡 Пропоную: ${analysis.proposed_fix}\n\n` +
+            'Відповідай:\n✅ так — застосувати і повторити\n❌ ні — скасувати\n💬 або напиши своє рішення';
 
-          await bot.sendMessage(chatId, errorMsg, { parse_mode: 'HTML' });
+          await bot.sendMessage(chatId, errorMsg);
         } catch (e) {
-          await bot.sendMessage(chatId, `⚠️ Помилки при створенні груп:\n${result.errors.join('\n')}`);
+          console.log('analyzeErrors error:', e.message);
+          await bot.sendMessage(chatId,
+            `⚠️ Не вдалося автоматично проаналізувати помилку: ${e.message}\n\nСирі помилки:\n${(result.errors || []).join('\n')}`
+          );
           delete sessions[userId];
         }
         return;

@@ -294,10 +294,24 @@ async function analyzeErrors(failedAdsets, campaignObjective) {
     }]
   });
 
-  const text = response.content[0].text.trim()
+  const raw = response.content[0].text.trim();
+  console.log('analyzeErrors raw response:', raw.substring(0, 500));
+
+  const text = raw
     .replace(/^```json\n?/, '').replace(/^```\n?/, '').replace(/\n?```$/, '').trim();
 
-  return JSON.parse(text);
+  let parsed;
+  try {
+    parsed = JSON.parse(text);
+  } catch (e) {
+    throw new Error(`AI повернув некоректний JSON: ${text.substring(0, 200)}`);
+  }
+
+  if (!parsed.fixed_adsets || !Array.isArray(parsed.fixed_adsets)) {
+    throw new Error(`AI не повернув fixed_adsets: ${JSON.stringify(parsed).substring(0, 200)}`);
+  }
+
+  return parsed;
 }
 
 // Повторний запуск провалених груп з виправленими параметрами
