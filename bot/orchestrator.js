@@ -1,7 +1,7 @@
 const Anthropic = require('@anthropic-ai/sdk');
 const fs = require('fs');
 const path = require('path');
-const { createFullStructure, validateFullStructure } = require('../tools/create_campaign');
+const { createFullStructure, validateFullStructure, retryFailedAdsets } = require('../tools/create_campaign');
 
 require('dotenv').config();
 
@@ -264,6 +264,47 @@ utm поле — рядок параметрів БЕЗ знаку "?". Сист
   }
 }
 
+// Аналіз помилок і пропозиція виправлення
+async function analyzeErrors(failedAdsets, campaignObjective) {
+  const errorDetails = failedAdsets.map(f =>
+    `Група "${f.params.name}"\nПомилка: ${f.error}\nПараметри: ${JSON.stringify(f.params, null, 2)}`
+  ).join('\n\n---\n\n');
+
+  const response = await client.messages.create({
+    model: 'claude-sonnet-4-20250514',
+    max_tokens: 3000,
+    system: `Ти аналізуєш помилки Meta Marketing API і пропонуєш конкретні виправлення параметрів adset.
+
+Відповідай ТІЛЬКИ валідним JSON без markdown:
+{
+  "explanation": "коротко що пішло не так (1-2 речення)",
+  "proposed_fix": "конкретно що треба змінити (для показу користувачу)",
+  "fixed_adsets": [ ...масив виправлених об'єктів { params: {...} } ]
+}
+
+Типові причини "Invalid parameter":
+- Threads плейсмент: "threads" не є допустимим значенням publisher_platforms для більшості цілей. Якщо є "threads" в publisher_platforms або threads_positions → видали їх.
+- optimization_goal несумісний з objective: OUTCOME_SALES → optimization_goal має бути OFFSITE_CONVERSIONS, OUTCOME_AWARENESS → REACH, OUTCOME_TRAFFIC → LINK_CLICKS або LANDING_PAGE_VIEWS.
+- instagram_positions "explore_home" або інші невалідні → видали їх.
+
+ВАЖЛИВО: у fixed_adsets повертай ПОВНІ params adset (з полем ads, targeting, тощо) але з виправленими параметрами.`,
+    messages: [{
+      role: 'user',
+      content: `Ціль кампанії: ${campaignObjective || 'невідома'}\n\nПровалені групи:\n\n${errorDetails}`
+    }]
+  });
+
+  const text = response.content[0].text.trim()
+    .replace(/^```json\n?/, '').replace(/^```\n?/, '').replace(/\n?```$/, '').trim();
+
+  return JSON.parse(text);
+}
+
+// Повторний запуск провалених груп з виправленими параметрами
+async function retryWithFix(campaignId, fixedAdsets, pageId) {
+  return retryFailedAdsets(campaignId, fixedAdsets, pageId);
+}
+
 // Публикация структуры
 async function publishStructure(structure) {
   const result = await createFullStructure(structure);
@@ -284,10 +325,13 @@ async function publishStructure(structure) {
   return {
     campaign_name: structure.campaign.name,
     campaign_id: result.campaign_id,
+    page_id: structure.page_id,
+    campaign_objective: structure.campaign.objective,
     adsets: result.adsets,
     ads: result.ads,
-    errors: result.errors || []
+    errors: result.errors || [],
+    failed_adsets: result.failed_adsets || []
   };
 }
 
-module.exports = { processLaunchBrief, publishStructure };
+module.exports = { processLaunchBrief, publishStructure, analyzeErrors, retryWithFix };

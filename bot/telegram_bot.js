@@ -70,6 +70,12 @@ bot.on('message', async (msg) => {
     return;
   }
 
+  // Якщо чекаємо рішення по помилках
+  if (sessions[userId] && sessions[userId].state === 'awaiting_error_fix') {
+    await handleErrorFix(chatId, userId, text);
+    return;
+  }
+
   // Новое ТЗ
   await handleNewBrief(chatId, userId, text);
 });
@@ -144,18 +150,40 @@ async function handleApproval(chatId, userId, text) {
       report += `\n📄 Объявлений: ${result.ads.length}\n`;
       report += '⏸️ Статус: PAUSED\n\n';
 
-      if (result.errors && result.errors.length > 0) {
-        report += `\n⚠️ Помилки (${result.errors.length}):\n`;
-        result.errors.forEach(e => { report += `• ${e}\n`; });
-        report += '\n';
-      }
-
       report += '🔗 <a href="https://business.facebook.com/adsmanager">Открыть Ads Manager</a>';
 
       await bot.sendMessage(chatId, report, {
         parse_mode: 'HTML',
         disable_web_page_preview: true
       });
+
+      // Якщо є провалені групи — запускаємо аналіз помилок
+      if (result.failed_adsets && result.failed_adsets.length > 0) {
+        await bot.sendMessage(chatId, '🔍 Аналізую помилки...');
+        try {
+          const { analyzeErrors } = require('./orchestrator');
+          const analysis = await analyzeErrors(result.failed_adsets, result.campaign_objective);
+
+          sessions[userId] = {
+            state: 'awaiting_error_fix',
+            campaignId: result.campaign_id,
+            pageId: result.page_id,
+            failedAdsets: result.failed_adsets,
+            fixedAdsets: analysis.fixed_adsets
+          };
+
+          let errorMsg = `⚠️ <b>Не вдалося створити ${result.failed_adsets.length} груп(и)</b>\n\n`;
+          errorMsg += `<b>Причина:</b> ${analysis.explanation}\n\n`;
+          errorMsg += `<b>💡 Пропоную:</b> ${analysis.proposed_fix}\n\n`;
+          errorMsg += 'Відповідай:\n✅ <b>так</b> — застосувати і повторити\n❌ <b>ні</b> — скасувати\n💬 або напиши своє рішення';
+
+          await bot.sendMessage(chatId, errorMsg, { parse_mode: 'HTML' });
+        } catch (e) {
+          await bot.sendMessage(chatId, `⚠️ Помилки при створенні груп:\n${result.errors.join('\n')}`);
+          delete sessions[userId];
+        }
+        return;
+      }
 
     } catch (err) {
       await bot.sendMessage(chatId, '❌ Ошибка при публикации: ' + err.message);
@@ -169,6 +197,78 @@ async function handleApproval(chatId, userId, text) {
     await bot.sendMessage(chatId, '✏️ Принял правки, пересобираю структуру...');
     await handleNewBrief(chatId, userId, sessions[userId].brief);
   }
+}
+
+// Обробка рішення по помилках
+async function handleErrorFix(chatId, userId, text) {
+  const session = sessions[userId];
+  const normalized = text.toLowerCase().trim();
+
+  if (normalized === 'ні' || normalized === 'нет' || normalized === 'no') {
+    await bot.sendMessage(chatId, '❌ Виправлення скасовано. Групи залишились незапущеними.');
+    delete sessions[userId];
+    return;
+  }
+
+  let fixedAdsets = session.fixedAdsets;
+
+  // Якщо не "так" — передаємо користувацьке рішення в AI для інтерпретації
+  if (!['так', 'да', 'yes', 'ок', 'ok'].includes(normalized)) {
+    await bot.sendMessage(chatId, '🔄 Застосовую твоє рішення...');
+    try {
+      const { analyzeErrors } = require('./orchestrator');
+      // Передаємо кастомне рішення як додатковий контекст
+      const reanalysis = await analyzeErrors(
+        session.failedAdsets.map(f => ({
+          ...f,
+          error: f.error + ` | Користувач пропонує: ${text}`
+        })),
+        null
+      );
+      fixedAdsets = reanalysis.fixed_adsets;
+
+      let confirmMsg = `<b>💡 Переглянута пропозиція:</b> ${reanalysis.proposed_fix}\n\n`;
+      confirmMsg += 'Застосувати? (так / ні)';
+      sessions[userId].fixedAdsets = fixedAdsets;
+      sessions[userId].state = 'awaiting_error_fix';
+      await bot.sendMessage(chatId, confirmMsg, { parse_mode: 'HTML' });
+      return;
+    } catch (e) {
+      await bot.sendMessage(chatId, '❌ Не вдалося обробити твоє рішення: ' + e.message);
+      delete sessions[userId];
+      return;
+    }
+  }
+
+  await bot.sendMessage(chatId, '🚀 Повторно запускаю групи з виправленнями...');
+  try {
+    const { retryWithFix } = require('./orchestrator');
+    const retryResult = await retryWithFix(session.campaignId, fixedAdsets, session.pageId);
+
+    let retryReport = `✅ <b>Retry завершено</b>\n\n`;
+    retryReport += `👥 Груп створено: ${retryResult.adsets.length}\n`;
+    retryReport += `📄 Об'явлень: ${retryResult.ads.length}\n`;
+
+    if (retryResult.adsets.length > 0) {
+      retryReport += '\n<b>Нові групи:</b>\n';
+      retryResult.adsets.forEach(a => {
+        retryReport += `  ${a.name} — <code>${a.id}</code>\n`;
+      });
+    }
+
+    if (retryResult.errors.length > 0) {
+      retryReport += `\n⚠️ Ще є помилки (${retryResult.errors.length}):\n`;
+      retryResult.errors.forEach(e => { retryReport += `• ${e}\n`; });
+    } else {
+      retryReport += '\n✅ Всі групи запущені успішно';
+    }
+
+    await bot.sendMessage(chatId, retryReport, { parse_mode: 'HTML' });
+  } catch (err) {
+    await bot.sendMessage(chatId, '❌ Помилка при повторному запуску: ' + err.message);
+  }
+
+  delete sessions[userId];
 }
 
 // Обработка уточнений

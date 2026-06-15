@@ -202,7 +202,8 @@ async function createFullStructure(structure) {
     campaign_id: null,
     adsets: [],
     ads: [],
-    errors: []
+    errors: [],
+    failed_adsets: []
   };
 
   try {
@@ -236,7 +237,8 @@ async function createFullStructure(structure) {
           }
         }
       } catch (err) {
-        results.errors.push(`Группа ${adset.name}: ${err.message}`);
+        results.errors.push(`Група ${adset.name}: ${err.message}`);
+        results.failed_adsets.push({ params: adset, error: err.message });
         console.log(`⚠️ ${err.message}`);
       }
     }
@@ -258,6 +260,40 @@ async function createFullStructure(structure) {
     results.errors.forEach(e => console.log(`   - ${e}`));
   } else {
     console.log('\n✅ Всё создано без ошибок');
+  }
+
+  return results;
+}
+
+// Повторна спроба створити провалені групи з виправленими параметрами
+async function retryFailedAdsets(campaignId, fixedAdsets, pageId) {
+  const results = { adsets: [], ads: [], errors: [], failed_adsets: [] };
+
+  for (const item of fixedAdsets) {
+    const adset = item.params;
+    try {
+      const adsetId = await createAdset(campaignId, adset);
+      results.adsets.push({ name: adset.name, id: adsetId });
+      console.log(`✅ Retry: група "${adset.name}" створена`);
+
+      for (const ad of (adset.ads || [])) {
+        try {
+          const adResult = await createAd(adsetId, { ...ad, page_id: pageId });
+          if (Array.isArray(adResult)) {
+            adResult.forEach((id, i) => results.ads.push({ name: ad.name + '_' + (i + 1), id }));
+          } else {
+            results.ads.push({ name: ad.name, id: adResult });
+          }
+        } catch (err) {
+          results.errors.push(`Об'явлення ${ad.name}: ${err.message}`);
+          console.log(`⚠️ ${err.message}`);
+        }
+      }
+    } catch (err) {
+      results.errors.push(`Група ${adset.name}: ${err.message}`);
+      results.failed_adsets.push({ params: adset, error: err.message });
+      console.log(`⚠️ Retry failed "${adset.name}": ${err.message}`);
+    }
   }
 
   return results;
@@ -597,5 +633,5 @@ async function validateFullStructure(structure) {
 
 module.exports = {
   createCampaign, createAdset, createAd,
-  createFullStructure, validateFullStructure
+  createFullStructure, validateFullStructure, retryFailedAdsets
 };
