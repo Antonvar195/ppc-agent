@@ -119,11 +119,11 @@ async function buildSpecForGroup(files, adText, adHeadline, destinationUrl) {
 
       if (isVideo(file.name)) {
         const videoId = await uploadVideoBufferToMeta(buffer, file.name);
-        videos.push({ video_id: videoId, _format: label });
+        videos.push({ video_id: videoId, adlabels: [{ name: `${label}_VIDEO` }], _format: label });
         console.log(`    ✅ video_id: ${videoId} [${label}]`);
       } else {
         const hash = await uploadImageBufferToMeta(buffer, file.name);
-        images.push({ hash, _format: label });
+        images.push({ hash, adlabels: [{ name: `${label}_IMG` }], _format: label });
         console.log(`    ✅ hash: ${hash} [${label}]`);
       }
     } catch (err) {
@@ -141,7 +141,7 @@ async function buildSpecForGroup(files, adText, adHeadline, destinationUrl) {
   const hasStoryVid  = videos.some(v => v._format === 'STORY');
   const hasMixed = (hasFeedImg || hasFeedVid) && (hasStoryImg || hasStoryVid);
 
-  // Убираем служебное поле перед отправкой в Meta
+  // Убираем служебное поле _format перед отправкой в Meta
   const cleanImages = images.map(({ _format, ...rest }) => rest);
   const cleanVideos = videos.map(({ _format, ...rest }) => rest);
 
@@ -156,23 +156,49 @@ async function buildSpecForGroup(files, adText, adHeadline, destinationUrl) {
   if (cleanImages.length > 0) spec.images = cleanImages;
   if (cleanVideos.length > 0) spec.videos = cleanVideos;
 
-  // PAC: Placement Asset Customization через asset_customization_rules
-  // Использует хеши напрямую без adlabels
+  // PAC через adlabels + image_label в asset_customization_rules
   if (hasMixed) {
-    const storyHashes = images.filter(i => i._format === 'STORY').map(i => i.hash);
-    const feedHashes  = images.filter(i => i._format === 'FEED').map(i => i.hash);
     const rules = [];
-    if (storyHashes.length > 0) rules.push({
-      customization_spec: { image_hashes: storyHashes },
-      placement_groups: ['STORY']
+    if (hasStoryImg) rules.push({
+      customization_spec: {
+        publisher_platforms: ['facebook', 'instagram'],
+        facebook_positions: ['story', 'facebook_reels'],
+        instagram_positions: ['story', 'reels']
+      },
+      image_label: { name: 'STORY_IMG' },
+      priority: 1
     });
-    if (feedHashes.length > 0) rules.push({
-      customization_spec: { image_hashes: feedHashes },
-      placement_groups: ['FEED'],
+    if (hasStoryVid) rules.push({
+      customization_spec: {
+        publisher_platforms: ['facebook', 'instagram'],
+        facebook_positions: ['story', 'facebook_reels'],
+        instagram_positions: ['story', 'reels']
+      },
+      video_label: { name: 'STORY_VIDEO' },
+      priority: 1
+    });
+    if (hasFeedImg) rules.push({
+      customization_spec: {
+        publisher_platforms: ['facebook', 'instagram'],
+        facebook_positions: ['feed', 'marketplace', 'search', 'video_feeds', 'profile_feed'],
+        instagram_positions: ['stream', 'explore', 'explore_home', 'profile_feed']
+      },
+      image_label: { name: 'FEED_IMG' },
+      priority: 2,
       is_default: true
     });
+    if (hasFeedVid) rules.push({
+      customization_spec: {
+        publisher_platforms: ['facebook', 'instagram'],
+        facebook_positions: ['feed', 'marketplace', 'search', 'video_feeds', 'profile_feed'],
+        instagram_positions: ['stream', 'explore', 'explore_home', 'profile_feed']
+      },
+      video_label: { name: 'FEED_VIDEO' },
+      priority: 2,
+      is_default: !hasFeedImg
+    });
     spec.asset_customization_rules = rules;
-    console.log(`    📐 PAC rules: feed(${feedHashes.length}) + story(${storyHashes.length})`);
+    console.log(`    📐 PAC rules: ${rules.map(r => r.image_label?.name || r.video_label?.name).join(' + ')}`);
   }
 
   return spec;
@@ -212,15 +238,48 @@ async function createAdWithAssets(adsetId, adName, assetFeedSpec, pageId) {
   console.log(`\n📄 Створюю об'явлення: ${adName}`);
 
   const topLevelUrl = assetFeedSpec.link_urls[0].website_url;
-  const hasPAC = !!(assetFeedSpec.asset_customization_rules);
+  const adText  = assetFeedSpec.bodies[0].text;
+  const adTitle = assetFeedSpec.titles[0].text;
+  const { asset_customization_rules, ...feedSpecClean } = assetFeedSpec;
 
-  const creativePayload = {
-    name: adName + '_creative',
-    object_story_spec: JSON.stringify({ page_id: pageId }),
-    link_url: topLevelUrl,
-    asset_feed_spec: JSON.stringify(assetFeedSpec)
-  };
-  if (hasPAC) creativePayload.optimization_type = 'PLACEMENT';
+  // PAC mode: object_story_spec с дефолтным feed-изображением + asset_customization_rules для stories
+  const feedImg  = feedSpecClean.images?.find(i => i.adlabels?.[0]?.name === 'FEED_IMG');
+  const storyImg = feedSpecClean.images?.find(i => i.adlabels?.[0]?.name === 'STORY_IMG');
+  const usePAC   = !!(feedImg && storyImg && asset_customization_rules);
+
+  let creativePayload;
+
+  if (usePAC) {
+    console.log(`  📐 PAC: object_story_spec(feed) + customization(story)`);
+    creativePayload = {
+      name: adName + '_creative',
+      object_story_spec: JSON.stringify({
+        page_id: pageId,
+        link_data: {
+          link: topLevelUrl,
+          message: adText,
+          name: adTitle,
+          image_hash: feedImg.hash,
+          call_to_action: { type: 'LEARN_MORE', value: { link: topLevelUrl } }
+        }
+      }),
+      asset_customization_rules: JSON.stringify([{
+        customization_spec: {
+          publisher_platforms: ['facebook', 'instagram'],
+          facebook_positions: ['story', 'facebook_reels'],
+          instagram_positions: ['story', 'reels']
+        },
+        image_hash: storyImg.hash
+      }])
+    };
+  } else {
+    creativePayload = {
+      name: adName + '_creative',
+      object_story_spec: JSON.stringify({ page_id: pageId }),
+      link_url: topLevelUrl,
+      asset_feed_spec: JSON.stringify(feedSpecClean)
+    };
+  }
 
   const creativeResult = await apiPost(`${AD_ACCOUNT_ID}/adcreatives`, creativePayload);
 
@@ -298,6 +357,8 @@ async function createAdWithAssets(adsetId, adName, assetFeedSpec, pageId) {
     return createdIds.length === 1 ? createdIds[0] : createdIds;
   }
 
+  console.log(`  ✅ Creative створено: ${creativeResult.id}`);
+
   const adResult = await apiPost(`${AD_ACCOUNT_ID}/ads`, {
     name: adName,
     adset_id: adsetId,
@@ -305,7 +366,11 @@ async function createAdWithAssets(adsetId, adName, assetFeedSpec, pageId) {
     status: 'PAUSED'
   });
 
-  if (adResult.error) throw new Error(`Ad: ${adResult.error.message}`);
+  if (adResult.error) {
+    console.log(`  ⚠️ Ad error ${adResult.error.code}/${adResult.error.error_subcode || '–'}: ${adResult.error.message}`);
+    console.log(`  ⚠️ Ad error_data: ${JSON.stringify(adResult.error.error_data || {})}`);
+    throw new Error(`Ad: ${adResult.error.message}`);
+  }
   console.log(`✅ Об'явлення створено: ${adResult.id}`);
   return adResult.id;
 }
