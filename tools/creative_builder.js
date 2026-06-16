@@ -119,11 +119,11 @@ async function buildSpecForGroup(files, adText, adHeadline, destinationUrl) {
 
       if (isVideo(file.name)) {
         const videoId = await uploadVideoBufferToMeta(buffer, file.name);
-        videos.push({ video_id: videoId, adlabels: [{ name: `${label}_VIDEO` }] });
+        videos.push({ video_id: videoId, _format: label });
         console.log(`    ✅ video_id: ${videoId} [${label}]`);
       } else {
         const hash = await uploadImageBufferToMeta(buffer, file.name);
-        images.push({ hash, adlabels: [{ name: `${label}_IMG` }] });
+        images.push({ hash, _format: label });
         console.log(`    ✅ hash: ${hash} [${label}]`);
       }
     } catch (err) {
@@ -135,66 +135,44 @@ async function buildSpecForGroup(files, adText, adHeadline, destinationUrl) {
     throw new Error(`Не вдалося завантажити жодного медіафайлу для групи (${files.map(f => f.name).join(', ')})`);
   }
 
-  const hasFeedImg   = images.some(i => i.adlabels[0].name === 'FEED_IMG');
-  const hasStoryImg  = images.some(i => i.adlabels[0].name === 'STORY_IMG');
-  const hasFeedVid   = videos.some(v => v.adlabels[0].name === 'FEED_VIDEO');
-  const hasStoryVid  = videos.some(v => v.adlabels[0].name === 'STORY_VIDEO');
+  const hasFeedImg   = images.some(i => i._format === 'FEED');
+  const hasStoryImg  = images.some(i => i._format === 'STORY');
+  const hasFeedVid   = videos.some(v => v._format === 'FEED');
+  const hasStoryVid  = videos.some(v => v._format === 'STORY');
   const hasMixed = (hasFeedImg || hasFeedVid) && (hasStoryImg || hasStoryVid);
+
+  // Убираем служебное поле перед отправкой в Meta
+  const cleanImages = images.map(({ _format, ...rest }) => rest);
+  const cleanVideos = videos.map(({ _format, ...rest }) => rest);
 
   const spec = {
     bodies: [{ text: adText }],
     titles: [{ text: adHeadline }],
-    link_urls: [{ website_url: destinationUrl, display_url: destinationUrl }],
+    link_urls: [{ website_url: destinationUrl }],
     call_to_action_types: ['LEARN_MORE'],
     ad_formats: ['SINGLE_IMAGE']
   };
 
-  if (images.length > 0) spec.images = images;
-  if (videos.length > 0) spec.videos = videos;
+  if (cleanImages.length > 0) spec.images = cleanImages;
+  if (cleanVideos.length > 0) spec.videos = cleanVideos;
 
-  // Placement Asset Customization — no DCO required, just SINGLE_IMAGE + asset_customization_rules
+  // PAC: Placement Asset Customization через asset_customization_rules
+  // Использует хеши напрямую без adlabels
   if (hasMixed) {
+    const storyHashes = images.filter(i => i._format === 'STORY').map(i => i.hash);
+    const feedHashes  = images.filter(i => i._format === 'FEED').map(i => i.hash);
     const rules = [];
-    if (hasStoryImg) rules.push({
-      customization_spec: {
-        publisher_platforms: ['facebook', 'instagram'],
-        facebook_positions: ['story', 'facebook_reels'],
-        instagram_positions: ['story', 'reels']
-      },
-      image_label: { name: 'STORY_IMG' },
-      priority: 1
+    if (storyHashes.length > 0) rules.push({
+      customization_spec: { image_hashes: storyHashes },
+      placement_groups: ['STORY']
     });
-    if (hasStoryVid) rules.push({
-      customization_spec: {
-        publisher_platforms: ['facebook', 'instagram'],
-        facebook_positions: ['story', 'facebook_reels'],
-        instagram_positions: ['story', 'reels']
-      },
-      video_label: { name: 'STORY_VIDEO' },
-      priority: 1
-    });
-    if (hasFeedImg) rules.push({
-      customization_spec: {
-        publisher_platforms: ['facebook', 'instagram'],
-        facebook_positions: ['feed', 'marketplace', 'search', 'video_feeds', 'profile_feed'],
-        instagram_positions: ['stream', 'explore', 'explore_home', 'profile_feed']
-      },
-      image_label: { name: 'FEED_IMG' },
-      priority: 2,
+    if (feedHashes.length > 0) rules.push({
+      customization_spec: { image_hashes: feedHashes },
+      placement_groups: ['FEED'],
       is_default: true
     });
-    if (hasFeedVid) rules.push({
-      customization_spec: {
-        publisher_platforms: ['facebook', 'instagram'],
-        facebook_positions: ['feed', 'marketplace', 'search', 'video_feeds', 'profile_feed'],
-        instagram_positions: ['stream', 'explore', 'explore_home', 'profile_feed']
-      },
-      video_label: { name: 'FEED_VIDEO' },
-      priority: 2,
-      is_default: !hasFeedImg
-    });
     spec.asset_customization_rules = rules;
-    console.log(`    📐 PAC rules: ${rules.map(r => r.image_label?.name || r.video_label?.name).join(' + ')}`);
+    console.log(`    📐 PAC rules: feed(${feedHashes.length}) + story(${storyHashes.length})`);
   }
 
   return spec;
@@ -234,16 +212,22 @@ async function createAdWithAssets(adsetId, adName, assetFeedSpec, pageId) {
   console.log(`\n📄 Створюю об'явлення: ${adName}`);
 
   const topLevelUrl = assetFeedSpec.link_urls[0].website_url;
+  const hasPAC = !!(assetFeedSpec.asset_customization_rules);
 
-  const creativeResult = await apiPost(`${AD_ACCOUNT_ID}/adcreatives`, {
+  const creativePayload = {
     name: adName + '_creative',
     object_story_spec: JSON.stringify({ page_id: pageId }),
     link_url: topLevelUrl,
     asset_feed_spec: JSON.stringify(assetFeedSpec)
-  });
+  };
+  if (hasPAC) creativePayload.optimization_type = 'PLACEMENT';
+
+  const creativeResult = await apiPost(`${AD_ACCOUNT_ID}/adcreatives`, creativePayload);
 
   if (creativeResult.error) {
     console.log(`⚠️  asset_feed_spec error ${creativeResult.error.code}/${creativeResult.error.error_subcode || '–'}: ${creativeResult.error.message}`);
+    console.log(`    error_data: ${JSON.stringify(creativeResult.error.error_data || {})}`);
+    console.log(`    sent spec: ${JSON.stringify(assetFeedSpec).substring(0, 500)}`);
 
     const rawUrl = assetFeedSpec.link_urls[0].website_url;
     const cleanUrl = stripUtmParams(rawUrl);
