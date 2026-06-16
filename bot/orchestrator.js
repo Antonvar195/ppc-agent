@@ -184,7 +184,7 @@ utm поле — рядок параметрів БЕЗ знаку "?". Сист
   let response;
   try {
     response = await client.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-4-6',
       max_tokens: 8000,
       system: systemPrompt,
       messages: [
@@ -271,7 +271,7 @@ async function analyzeErrors(failedAdsets, campaignObjective) {
   ).join('\n\n---\n\n');
 
   const response = await client.messages.create({
-    model: 'claude-sonnet-4-20250514',
+    model: 'claude-sonnet-4-6',
     max_tokens: 3000,
     system: `Ти аналізуєш помилки Meta Marketing API і пропонуєш конкретні виправлення параметрів adset.
 

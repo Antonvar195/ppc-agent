@@ -13,15 +13,25 @@
 - agents/link_checker.md — проверяет все ссылки до публикации
 - agents/naming_agent.md — генерирует названия по стандартам
 - agents/utm_agent.md — генерирует UTM разметку
-- agents/publisher.md — пустой, следующий на очереди
-- tools/meta_api.js — коннектор к Meta API, тест прошёл успешно
-- tools/create_campaign.js — скрипт создания структуры кампании
-- tools/test_structure.js — тестовый запуск (пока не запускали)
+- tools/meta_api.js — коннектор к Meta API v21.0
+- tools/create_campaign.js — скрипт создания структуры кампании (с auto-fix Threads)
+- tools/creative_builder.js — загрузка изображений + видео в Meta
+- bot/telegram_bot.js + bot/orchestrator.js — Telegram бот с оркестратором
 - Meta API соединение работает, аккаунт активен
 
-### Сейчас делаем
-- Подключить Telegram бота
-- Первый тестовый запуск создания структуры
+### Исправлено (июнь 2026)
+- Модель Claude: claude-sonnet-4-20250514 → claude-sonnet-4-6
+- Meta API: v19.0 → v21.0
+- Threads плейсмент: удалён из дефолтов (несовместим с большинством objective)
+- Auto-fix: Threads автоматически вырезается из targeting в validateFullStructure
+- Видео: реализована загрузка MP4/MOV через буфер в Meta (graph-video.facebook.com)
+- Fallback creative: поддержка видео в object_story_spec (video_data)
+- Пример бюджета в /help: UAH → USD (аккаунт в долларах)
+
+### Следующие этапы
+- Блок аналитики (сбор метрик, динамика, объяснение изменений)
+- Блок рекомендаций (бюджет, усталость, сплит-тесты)
+- Алерты аномального спенда
 
 ### Следующие этапы
 - Блок аналитики (сбор метрик, динамика, объяснение изменений)

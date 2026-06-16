@@ -4,7 +4,7 @@ require('dotenv').config({ path: path.join(__dirname, '../.env') });
 
 const TOKEN = process.env.META_ACCESS_TOKEN;
 const AD_ACCOUNT_ID = process.env.META_AD_ACCOUNT_ID;
-const API_VERSION = 'v19.0';
+const API_VERSION = 'v21.0';
 const BASE_URL = 'graph.facebook.com';
 
 // Базовый GET запрос к Meta API

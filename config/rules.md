@@ -177,11 +177,12 @@ Facebook Feed
 Instagram Feed
 Instagram Stories
 Instagram Reels
-Threads
 (якщо не вказано інше в ТЗ)
 
+⚠️ Threads НЕ використовується за замовчуванням — несумісний з більшістю цілей Meta API.
+Додавати тільки якщо явно вказано в ТЗ і підтверджено сумісність з objective.
+
 Для зміни плейсментів — вказати в ТЗ або в назві групи:
-inst_treads → тільки Instagram + Threads
 inst → тільки Instagram (Feed + Stories + Reels)
 fb → тільки Facebook Feed
 

@@ -528,6 +528,15 @@ async function validateFullStructure(structure) {
       adset.targeting_automation = { advantage_audience: 0 };
       autoFixed.push(`Додано targeting_automation до групи "${adset.name}"`);
     }
+    // Auto-fix: видаляємо Threads — несумісний з більшістю objective
+    if (adset.targeting && adset.targeting.publisher_platforms) {
+      const before = adset.targeting.publisher_platforms;
+      adset.targeting.publisher_platforms = before.filter(p => p !== 'threads');
+      if (adset.targeting.publisher_platforms.length < before.length) {
+        delete adset.targeting.threads_positions;
+        autoFixed.push(`Видалено Threads з плейсментів групи "${adset.name}"`);
+      }
+    }
     // Auto-fix custom_locations → правильний формат Meta API
     if (adset.targeting && (
       adset.targeting.custom_locations ||

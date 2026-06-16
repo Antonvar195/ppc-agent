@@ -1,12 +1,12 @@
 const axios = require('axios');
+const FormData = require('form-data');
 const { listFolderBySharedLink } = require('./dropbox_reader');
 const { isVideo } = require('./media_uploader');
 const { apiPost } = require('./meta_api');
 require('dotenv').config();
 
 const AD_ACCOUNT_ID = process.env.META_AD_ACCOUNT_ID;
-const DROPBOX_TOKEN = process.env.DROPBOX_ACCESS_TOKEN;
-const INSTAGRAM_ACTOR_ID = process.env.META_INSTAGRAM_ACTOR_ID;
+const API_VERSION = 'v21.0';
 
 function stripUtmParams(url) {
   try {
@@ -47,6 +47,31 @@ async function uploadImageBufferToMeta(buffer, name) {
   const imgData = Object.values(result.images || {})[0];
   if (!imgData) throw new Error('Meta не повернув hash зображення');
   return imgData.hash;
+}
+
+// Загрузить видео (буфер) в Meta → вернуть video_id
+async function uploadVideoBufferToMeta(buffer, name) {
+  const form = new FormData();
+  form.append('access_token', process.env.META_ACCESS_TOKEN);
+  form.append('name', name);
+  form.append('source', buffer, {
+    filename: name,
+    contentType: name.toLowerCase().endsWith('.mov') ? 'video/quicktime' : 'video/mp4'
+  });
+
+  const response = await axios.post(
+    `https://graph-video.facebook.com/${API_VERSION}/${AD_ACCOUNT_ID}/advideos`,
+    form,
+    {
+      headers: form.getHeaders(),
+      maxContentLength: 200 * 1024 * 1024,
+      timeout: 120000
+    }
+  );
+
+  if (response.data.error) throw new Error(response.data.error.message);
+  if (!response.data.id) throw new Error('Meta не повернув ID відео');
+  return response.data.id;
 }
 
 // Извлечь числовой идентификатор из имени файла
@@ -92,8 +117,9 @@ async function buildSpecForGroup(files, adText, adHeadline, destinationUrl) {
       const buffer = await downloadFromSharedFolder(sharedFolderUrl, fileName);
 
       if (isVideo(file.name)) {
-        // TODO: видео через буфер не поддерживается, пропускаем
-        console.log(`    ⚠️ Відео пропущено (поки не підтримується): ${file.name}`);
+        const videoId = await uploadVideoBufferToMeta(buffer, file.name);
+        videos.push({ video_id: videoId });
+        console.log(`    ✅ video_id: ${videoId}`);
       } else {
         const hash = await uploadImageBufferToMeta(buffer, file.name);
         images.push({ hash });
@@ -166,28 +192,38 @@ async function createAdWithAssets(adsetId, adName, assetFeedSpec, pageId) {
 
   if (creativeResult.error) {
     console.log('asset_feed_spec помилка:', creativeResult.error.message);
-    console.log('Використовую fallback з першим зображенням...');
-
-    const firstImage = assetFeedSpec.images?.[0];
-    if (!firstImage) throw new Error('Немає зображень для fallback');
+    console.log('Використовую fallback...');
 
     const rawUrl = assetFeedSpec.link_urls[0].website_url;
     const cleanUrl = stripUtmParams(rawUrl);
+    const firstVideo = assetFeedSpec.videos?.[0];
+    const firstImage = assetFeedSpec.images?.[0];
 
-    const objectStorySpec = {
-      page_id: pageId,
-      link_data: {
-        link: cleanUrl,
-        message: assetFeedSpec.bodies[0].text,
-        name: assetFeedSpec.titles[0].text,
-        image_hash: firstImage.hash,
-        call_to_action: {
-          type: 'LEARN_MORE',
-          value: { link: rawUrl }
+    if (!firstVideo && !firstImage) throw new Error('Немає медіа для fallback');
+
+    let objectStorySpec;
+    if (firstVideo) {
+      objectStorySpec = {
+        page_id: pageId,
+        video_data: {
+          video_id: firstVideo.video_id,
+          message: assetFeedSpec.bodies[0].text,
+          title: assetFeedSpec.titles[0].text,
+          call_to_action: { type: 'LEARN_MORE', value: { link: rawUrl } }
         }
-      }
-    };
-    console.log('  object_story_spec:', JSON.stringify(objectStorySpec, null, 2));
+      };
+    } else {
+      objectStorySpec = {
+        page_id: pageId,
+        link_data: {
+          link: cleanUrl,
+          message: assetFeedSpec.bodies[0].text,
+          name: assetFeedSpec.titles[0].text,
+          image_hash: firstImage.hash,
+          call_to_action: { type: 'LEARN_MORE', value: { link: rawUrl } }
+        }
+      };
+    }
 
     const fallbackCreative = await apiPost(`${AD_ACCOUNT_ID}/adcreatives`, {
       name: adName + '_creative',
@@ -223,4 +259,4 @@ async function createAdWithAssets(adsetId, adName, assetFeedSpec, pageId) {
   return adResult.id;
 }
 
-module.exports = { buildAllCreativeSpecs, createAdWithAssets };
+module.exports = { buildAllCreativeSpecs, createAdWithAssets, uploadVideoBufferToMeta };
