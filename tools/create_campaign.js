@@ -69,7 +69,7 @@ async function createCampaign(params) {
 }
 
 // Создать группу объявлений
-async function createAdset(campaignId, params) {
+async function createAdset(campaignId, params, isDynamic = false) {
   console.log(`\n👥 Создаю группу: ${params.name}`);
 
   // Нормализуем targeting — добавляем обязательный targeting_automation
@@ -93,22 +93,21 @@ async function createAdset(campaignId, params) {
     start_time: params.start_time || new Date().toISOString()
   };
   if (params.end_time) adsetParams.end_time = params.end_time;
+  if (isDynamic) adsetParams.is_dynamic_creative = true;
 
   const result = await apiPost(`${AD_ACCOUNT_ID}/adsets`, adsetParams);
-  console.log('=== ADSET API RESPONSE ===');
-  console.log(JSON.stringify(result, null, 2));
-  console.log('==========================');
 
   if (result.error) {
     throw new Error(`Ошибка создания группы: ${result.error.message}`);
   }
 
-  console.log(`✅ Группа создана: ${result.id}`);
+  console.log(`✅ Группа создана: ${result.id}${isDynamic ? ' [dynamic]' : ''}`);
   return result.id;
 }
 
 // Создать объявление
-async function createAd(adsetId, params) {
+// campaignId + adsetTemplate needed to create per-creative sub-adsets for PAC
+async function createAd(adsetId, params, campaignId = null, adsetTemplate = null) {
   const results = [];
 
   if (params.dropbox_link) {
@@ -130,11 +129,23 @@ async function createAd(adsetId, params) {
       return results;
     }
 
-    // Создаём объявления на каждый креатив (fallback может вернуть массив)
+    // Для кожного креативу — окремий dynamic adset (is_dynamic_creative = true)
+    // Dynamic adset дозволяє asset_feed_spec і adapt_to_placement для PAC
     for (const { creativeId, spec } of creativeSpecs) {
       const adName = params.name.replace(/\d+$/, '') + creativeId;
       try {
-        const adId = await createAdWithAssets(adsetId, adName, spec, params.page_id);
+        let targetAdsetId = adsetId;
+
+        // Якщо є campaignId і шаблон adset — створюємо окремий dynamic adset для цього креативу
+        if (campaignId && adsetTemplate) {
+          const subAdsetName = (adsetTemplate.name || params.name) + '_' + creativeId;
+          targetAdsetId = await createAdset(campaignId, {
+            ...adsetTemplate,
+            name: subAdsetName
+          }, true); // isDynamic = true
+        }
+
+        const adId = await createAdWithAssets(targetAdsetId, adName, spec, params.page_id);
         if (Array.isArray(adId)) {
           results.push(...adId);
         } else {
@@ -226,7 +237,7 @@ async function createFullStructure(structure) {
             const adResult = await createAd(adsetId, {
               ...ad,
               page_id: structure.page_id
-            });
+            }, results.campaign_id, adset);
             // createAd может вернуть id или массив id (при dropbox_link)
             if (Array.isArray(adResult)) {
               adResult.forEach((id, i) => {

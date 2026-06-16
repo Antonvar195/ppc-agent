@@ -234,127 +234,78 @@ async function buildAllCreativeSpecs(dropboxLink, adText, adHeadline, destinatio
 }
 
 // Создать объявление с asset_feed_spec
+// Adset must have is_dynamic_creative: true for asset_feed_spec to work
 async function createAdWithAssets(adsetId, adName, assetFeedSpec, pageId) {
   console.log(`\n📄 Створюю об'явлення: ${adName}`);
 
   const topLevelUrl = assetFeedSpec.link_urls[0].website_url;
-  const adText  = assetFeedSpec.bodies[0].text;
-  const adTitle = assetFeedSpec.titles[0].text;
+  // Strip internal fields from spec before sending to Meta
   const { asset_customization_rules, ...feedSpecClean } = assetFeedSpec;
 
-  // PAC mode: object_story_spec с дефолтным feed-изображением + asset_customization_rules для stories
-  const feedImg  = feedSpecClean.images?.find(i => i.adlabels?.[0]?.name === 'FEED_IMG');
-  const storyImg = feedSpecClean.images?.find(i => i.adlabels?.[0]?.name === 'STORY_IMG');
-  const usePAC   = !!(feedImg && storyImg && asset_customization_rules);
+  const hasMixed = !!(
+    feedSpecClean.images?.some(i => i.adlabels?.[0]?.name === 'FEED_IMG') &&
+    feedSpecClean.images?.some(i => i.adlabels?.[0]?.name === 'STORY_IMG')
+  );
 
-  let creativePayload;
-
-  if (usePAC) {
-    console.log(`  📐 PAC: object_story_spec(feed) + customization(story)`);
-    creativePayload = {
-      name: adName + '_creative',
-      object_story_spec: JSON.stringify({
-        page_id: pageId,
-        link_data: {
-          link: topLevelUrl,
-          message: adText,
-          name: adTitle,
-          image_hash: feedImg.hash,
-          call_to_action: { type: 'LEARN_MORE', value: { link: topLevelUrl } }
-        }
-      }),
-      asset_customization_rules: JSON.stringify([{
-        customization_spec: {
-          publisher_platforms: ['facebook', 'instagram'],
-          facebook_positions: ['story', 'facebook_reels'],
-          instagram_positions: ['story', 'reels']
-        },
-        image_hash: storyImg.hash
-      }])
-    };
-  } else {
-    creativePayload = {
-      name: adName + '_creative',
-      object_story_spec: JSON.stringify({ page_id: pageId }),
-      link_url: topLevelUrl,
-      asset_feed_spec: JSON.stringify(feedSpecClean)
-    };
+  if (hasMixed) {
+    console.log(`  📐 PAC: asset_feed_spec (FEED+STORY) + adapt_to_placement OPT_IN`);
   }
+
+  // degrees_of_freedom_spec: opt into placement-aware serving
+  const degreesOfFreedom = {
+    creative_features_spec: {
+      adapt_to_placement: { enroll_status: 'OPT_IN' }
+    }
+  };
+  if (hasMixed) {
+    degreesOfFreedom.creative_features_spec.pac_recomposition = { enroll_status: 'OPT_IN' };
+  }
+
+  const creativePayload = {
+    name: adName + '_creative',
+    object_story_spec: JSON.stringify({ page_id: pageId }),
+    link_url: topLevelUrl,
+    asset_feed_spec: JSON.stringify(feedSpecClean),
+    degrees_of_freedom_spec: JSON.stringify(degreesOfFreedom)
+  };
 
   const creativeResult = await apiPost(`${AD_ACCOUNT_ID}/adcreatives`, creativePayload);
 
   if (creativeResult.error) {
     console.log(`⚠️  asset_feed_spec error ${creativeResult.error.code}/${creativeResult.error.error_subcode || '–'}: ${creativeResult.error.message}`);
     console.log(`    error_data: ${JSON.stringify(creativeResult.error.error_data || {})}`);
-    console.log(`    sent spec: ${JSON.stringify(assetFeedSpec).substring(0, 500)}`);
 
+    // Fallback: use first FEED image (or first available) with object_story_spec
     const rawUrl = assetFeedSpec.link_urls[0].website_url;
     const cleanUrl = stripUtmParams(rawUrl);
-    const adText = assetFeedSpec.bodies[0].text;
+    const adText  = assetFeedSpec.bodies[0].text;
     const adTitle = assetFeedSpec.titles[0].text;
 
-    const allMedia = [
-      ...(assetFeedSpec.images || []).map(img => ({ type: 'image', data: img })),
-      ...(assetFeedSpec.videos || []).map(vid => ({ type: 'video', data: vid }))
-    ];
-    if (allMedia.length === 0) throw new Error('Немає медіа для fallback');
+    const feedImg = (assetFeedSpec.images || []).find(i => i.adlabels?.[0]?.name === 'FEED_IMG')
+      || (assetFeedSpec.images || [])[0];
+    const feedVid = (assetFeedSpec.videos || []).find(v => v.adlabels?.[0]?.name === 'FEED_VIDEO')
+      || (assetFeedSpec.videos || [])[0];
+    const media   = feedImg || feedVid;
+    if (!media) throw new Error('Немає медіа для fallback');
 
-    const createdIds = [];
-    for (let i = 0; i < allMedia.length; i++) {
-      const media = allMedia[i];
-      const suffix = allMedia.length > 1 ? `_${String.fromCharCode(97 + i)}` : ''; // _a, _b, ...
-      const fallbackAdName = adName + suffix;
+    const objectStorySpec = feedImg
+      ? { page_id: pageId, link_data: { link: cleanUrl, message: adText, name: adTitle, image_hash: feedImg.hash, call_to_action: { type: 'LEARN_MORE', value: { link: rawUrl } } } }
+      : { page_id: pageId, video_data: { video_id: feedVid.video_id, message: adText, title: adTitle, call_to_action: { type: 'LEARN_MORE', value: { link: rawUrl } } } };
 
-      let objectStorySpec;
-      if (media.type === 'video') {
-        objectStorySpec = {
-          page_id: pageId,
-          video_data: {
-            video_id: media.data.video_id,
-            message: adText,
-            title: adTitle,
-            call_to_action: { type: 'LEARN_MORE', value: { link: rawUrl } }
-          }
-        };
-      } else {
-        objectStorySpec = {
-          page_id: pageId,
-          link_data: {
-            link: cleanUrl,
-            message: adText,
-            name: adTitle,
-            image_hash: media.data.hash,
-            call_to_action: { type: 'LEARN_MORE', value: { link: rawUrl } }
-          }
-        };
-      }
+    const fallbackCreative = await apiPost(`${AD_ACCOUNT_ID}/adcreatives`, {
+      name: adName + '_creative',
+      object_story_spec: JSON.stringify(objectStorySpec)
+    });
+    if (fallbackCreative.error) throw new Error(`Fallback creative: ${fallbackCreative.error.message}`);
 
-      const fallbackCreative = await apiPost(`${AD_ACCOUNT_ID}/adcreatives`, {
-        name: fallbackAdName + '_creative',
-        object_story_spec: JSON.stringify(objectStorySpec)
-      });
-      if (fallbackCreative.error) {
-        console.log(`  ⚠️ Creative ${i + 1}: ${fallbackCreative.error.message}`);
-        continue;
-      }
-
-      const adResult = await apiPost(`${AD_ACCOUNT_ID}/ads`, {
-        name: fallbackAdName,
-        adset_id: adsetId,
-        creative: JSON.stringify({ creative_id: fallbackCreative.id }),
-        status: 'PAUSED'
-      });
-      if (adResult.error) {
-        console.log(`  ⚠️ Ad ${i + 1}: ${adResult.error.message}`);
-        continue;
-      }
-
-      console.log(`✅ Об'явлення (fallback ${i + 1}/${allMedia.length}) створено: ${adResult.id}`);
-      createdIds.push(adResult.id);
-    }
-
-    if (createdIds.length === 0) throw new Error('Жодного об\'явлення не вдалося створити');
-    return createdIds.length === 1 ? createdIds[0] : createdIds;
+    const fallbackAd = await apiPost(`${AD_ACCOUNT_ID}/ads`, {
+      name: adName, adset_id: adsetId,
+      creative: JSON.stringify({ creative_id: fallbackCreative.id }),
+      status: 'PAUSED'
+    });
+    if (fallbackAd.error) throw new Error(`Fallback ad: ${fallbackAd.error.message}`);
+    console.log(`✅ Об'явлення (fallback) створено: ${fallbackAd.id}`);
+    return fallbackAd.id;
   }
 
   console.log(`  ✅ Creative створено: ${creativeResult.id}`);
