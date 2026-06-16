@@ -112,18 +112,19 @@ async function buildSpecForGroup(files, adText, adHeadline, destinationUrl) {
 
   for (const file of files) {
     try {
-      console.log(`    ⬇️  ${file.name} (${Math.round(file.size / 1024)}KB)`);
+      console.log(`    ⬇️  ${file.name} (${Math.round(file.size / 1024)}KB) [${file.format || 'square'}]`);
       const { sharedFolderUrl, fileName } = file.downloadUrl;
       const buffer = await downloadFromSharedFolder(sharedFolderUrl, fileName);
+      const label = (file.format === 'vertical') ? 'STORY' : 'FEED';
 
       if (isVideo(file.name)) {
         const videoId = await uploadVideoBufferToMeta(buffer, file.name);
-        videos.push({ video_id: videoId });
-        console.log(`    ✅ video_id: ${videoId}`);
+        videos.push({ video_id: videoId, adlabels: [{ name: `${label}_VIDEO` }] });
+        console.log(`    ✅ video_id: ${videoId} [${label}]`);
       } else {
         const hash = await uploadImageBufferToMeta(buffer, file.name);
-        images.push({ hash });
-        console.log(`    ✅ hash: ${hash}`);
+        images.push({ hash, adlabels: [{ name: `${label}_IMG` }] });
+        console.log(`    ✅ hash: ${hash} [${label}]`);
       }
     } catch (err) {
       console.log(`    ⚠️ ${file.name}: ${err.message}`);
@@ -134,18 +135,67 @@ async function buildSpecForGroup(files, adText, adHeadline, destinationUrl) {
     throw new Error(`Не вдалося завантажити жодного медіафайлу для групи (${files.map(f => f.name).join(', ')})`);
   }
 
+  const hasFeedImg   = images.some(i => i.adlabels[0].name === 'FEED_IMG');
+  const hasStoryImg  = images.some(i => i.adlabels[0].name === 'STORY_IMG');
+  const hasFeedVid   = videos.some(v => v.adlabels[0].name === 'FEED_VIDEO');
+  const hasStoryVid  = videos.some(v => v.adlabels[0].name === 'STORY_VIDEO');
+  const hasMixed = (hasFeedImg || hasFeedVid) && (hasStoryImg || hasStoryVid);
+
   const spec = {
     bodies: [{ text: adText }],
     titles: [{ text: adHeadline }],
-    link_urls: [{
-      website_url: destinationUrl,
-      display_url: destinationUrl
-    }],
-    call_to_action_types: ['LEARN_MORE']
+    link_urls: [{ website_url: destinationUrl, display_url: destinationUrl }],
+    call_to_action_types: ['LEARN_MORE'],
+    ad_formats: ['SINGLE_IMAGE']
   };
 
   if (images.length > 0) spec.images = images;
   if (videos.length > 0) spec.videos = videos;
+
+  // Placement Asset Customization — no DCO required, just SINGLE_IMAGE + asset_customization_rules
+  if (hasMixed) {
+    const rules = [];
+    if (hasStoryImg) rules.push({
+      customization_spec: {
+        publisher_platforms: ['facebook', 'instagram'],
+        facebook_positions: ['story', 'facebook_reels'],
+        instagram_positions: ['story', 'reels']
+      },
+      image_label: { name: 'STORY_IMG' },
+      priority: 1
+    });
+    if (hasStoryVid) rules.push({
+      customization_spec: {
+        publisher_platforms: ['facebook', 'instagram'],
+        facebook_positions: ['story', 'facebook_reels'],
+        instagram_positions: ['story', 'reels']
+      },
+      video_label: { name: 'STORY_VIDEO' },
+      priority: 1
+    });
+    if (hasFeedImg) rules.push({
+      customization_spec: {
+        publisher_platforms: ['facebook', 'instagram'],
+        facebook_positions: ['feed', 'marketplace', 'search', 'video_feeds', 'profile_feed'],
+        instagram_positions: ['stream', 'explore', 'explore_home', 'profile_feed']
+      },
+      image_label: { name: 'FEED_IMG' },
+      priority: 2,
+      is_default: true
+    });
+    if (hasFeedVid) rules.push({
+      customization_spec: {
+        publisher_platforms: ['facebook', 'instagram'],
+        facebook_positions: ['feed', 'marketplace', 'search', 'video_feeds', 'profile_feed'],
+        instagram_positions: ['stream', 'explore', 'explore_home', 'profile_feed']
+      },
+      video_label: { name: 'FEED_VIDEO' },
+      priority: 2,
+      is_default: !hasFeedImg
+    });
+    spec.asset_customization_rules = rules;
+    console.log(`    📐 PAC rules: ${rules.map(r => r.image_label?.name || r.video_label?.name).join(' + ')}`);
+  }
 
   return spec;
 }
@@ -185,8 +235,8 @@ async function createAdWithAssets(adsetId, adName, assetFeedSpec, pageId) {
 
   const creativeResult = await apiPost(`${AD_ACCOUNT_ID}/adcreatives`, {
     name: adName + '_creative',
-    asset_feed_spec: JSON.stringify(assetFeedSpec),
-    page_id: pageId
+    object_story_spec: JSON.stringify({ page_id: pageId }),
+    asset_feed_spec: JSON.stringify(assetFeedSpec)
   });
 
   if (creativeResult.error) {
