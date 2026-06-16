@@ -141,8 +141,7 @@ async function buildSpecForGroup(files, adText, adHeadline, destinationUrl) {
       website_url: destinationUrl,
       display_url: destinationUrl
     }],
-    call_to_action_types: ['LEARN_MORE'],
-    ad_formats: ['AUTOMATIC_FORMAT']
+    call_to_action_types: ['LEARN_MORE']
   };
 
   if (images.length > 0) spec.images = images;
@@ -191,7 +190,7 @@ async function createAdWithAssets(adsetId, adName, assetFeedSpec, pageId) {
   });
 
   if (creativeResult.error) {
-    console.log('ℹ️  asset_feed_spec недоступний, fallback — окреме об\'явлення на кожне медіа...');
+    console.log(`⚠️  asset_feed_spec error ${creativeResult.error.code}/${creativeResult.error.error_subcode || '–'}: ${creativeResult.error.message}`);
 
     const rawUrl = assetFeedSpec.link_urls[0].website_url;
     const cleanUrl = stripUtmParams(rawUrl);
