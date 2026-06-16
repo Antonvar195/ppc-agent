@@ -235,7 +235,8 @@ async function buildAllCreativeSpecs(dropboxLink, adText, adHeadline, destinatio
 
 // Создать объявление с asset_feed_spec
 // Adset must have is_dynamic_creative: true for asset_feed_spec to work
-async function createAdWithAssets(adsetId, adName, assetFeedSpec, pageId) {
+// urlTags — UTM string for Meta "URL Parameters" field (not appended to URL)
+async function createAdWithAssets(adsetId, adName, assetFeedSpec, pageId, urlTags = '') {
   console.log(`\n📄 Створюю об'явлення: ${adName}`);
 
   const topLevelUrl = assetFeedSpec.link_urls[0].website_url;
@@ -268,6 +269,7 @@ async function createAdWithAssets(adsetId, adName, assetFeedSpec, pageId) {
     asset_feed_spec: JSON.stringify(feedSpecClean),
     degrees_of_freedom_spec: JSON.stringify(degreesOfFreedom)
   };
+  if (urlTags) creativePayload.url_tags = urlTags;
 
   const creativeResult = await apiPost(`${AD_ACCOUNT_ID}/adcreatives`, creativePayload);
 

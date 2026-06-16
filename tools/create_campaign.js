@@ -119,18 +119,17 @@ async function createAd(adsetId, params, campaignId = null, adsetTemplate = null
   const results = [];
 
   if (params.dropbox_link) {
-    // UTM: use provided utm string, or build default from campaign objective
+    // UTM goes into url_tags (Meta "URL Parameters" field), NOT appended to the URL
     const utmMedium = OBJECTIVE_TO_MEDIUM[params._campaign_objective] || 'reach';
     const defaultUtm = `utm_source=facebook&utm_medium=${utmMedium}&utm_campaign={{campaign.name}}&utm_content={{ad.name}}&utm_term={{adset.name}}&placement={{placement}}`;
     const utmString = params.utm || defaultUtm;
-    const urlWithUtm = params.url + (params.url.includes('?') ? '&' : '?') + utmString;
 
-    // Получаем все specs, сгруппированные по креативам
+    // Получаем все specs, сгруппированные по креативам (передаём чистый URL без UTM)
     const creativeSpecs = await buildAllCreativeSpecs(
       params.dropbox_link,
       params.text || 'Apollo Next — фітнес для всіх',
       params.headline || 'Спробуй Apollo Next',
-      urlWithUtm
+      params.url
     );
 
     if (creativeSpecs.length === 0) {
@@ -157,7 +156,7 @@ async function createAd(adsetId, params, campaignId = null, adsetTemplate = null
           }, true); // isDynamic = true
         }
 
-        const adId = await createAdWithAssets(targetAdsetId, adName, spec, params.page_id);
+        const adId = await createAdWithAssets(targetAdsetId, adName, spec, params.page_id, utmString);
         if (Array.isArray(adId)) {
           results.push(...adId);
         } else {
