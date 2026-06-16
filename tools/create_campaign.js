@@ -130,12 +130,16 @@ async function createAd(adsetId, params) {
       return results;
     }
 
-    // Создаём одно объявление на каждый креатив
+    // Создаём объявления на каждый креатив (fallback может вернуть массив)
     for (const { creativeId, spec } of creativeSpecs) {
       const adName = params.name.replace(/\d+$/, '') + creativeId;
       try {
         const adId = await createAdWithAssets(adsetId, adName, spec, params.page_id);
-        results.push(adId);
+        if (Array.isArray(adId)) {
+          results.push(...adId);
+        } else {
+          results.push(adId);
+        }
       } catch (err) {
         console.log(`⚠️ ${adName}: ${err.message}`);
       }

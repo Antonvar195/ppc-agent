@@ -192,59 +192,75 @@ async function createAdWithAssets(adsetId, adName, assetFeedSpec, pageId) {
 
   if (creativeResult.error) {
     console.log('asset_feed_spec помилка:', creativeResult.error.message);
-    console.log('Використовую fallback...');
+    console.log('Використовую fallback — окреме об\'явлення на кожне медіа...');
 
     const rawUrl = assetFeedSpec.link_urls[0].website_url;
     const cleanUrl = stripUtmParams(rawUrl);
-    const firstVideo = assetFeedSpec.videos?.[0];
-    const firstImage = assetFeedSpec.images?.[0];
+    const adText = assetFeedSpec.bodies[0].text;
+    const adTitle = assetFeedSpec.titles[0].text;
 
-    if (!firstVideo && !firstImage) throw new Error('Немає медіа для fallback');
+    const allMedia = [
+      ...(assetFeedSpec.images || []).map(img => ({ type: 'image', data: img })),
+      ...(assetFeedSpec.videos || []).map(vid => ({ type: 'video', data: vid }))
+    ];
+    if (allMedia.length === 0) throw new Error('Немає медіа для fallback');
 
-    let objectStorySpec;
-    if (firstVideo) {
-      objectStorySpec = {
-        page_id: pageId,
-        video_data: {
-          video_id: firstVideo.video_id,
-          message: assetFeedSpec.bodies[0].text,
-          title: assetFeedSpec.titles[0].text,
-          call_to_action: { type: 'LEARN_MORE', value: { link: rawUrl } }
-        }
-      };
-    } else {
-      objectStorySpec = {
-        page_id: pageId,
-        link_data: {
-          link: cleanUrl,
-          message: assetFeedSpec.bodies[0].text,
-          name: assetFeedSpec.titles[0].text,
-          image_hash: firstImage.hash,
-          call_to_action: { type: 'LEARN_MORE', value: { link: rawUrl } }
-        }
-      };
+    const createdIds = [];
+    for (let i = 0; i < allMedia.length; i++) {
+      const media = allMedia[i];
+      const suffix = allMedia.length > 1 ? `_${String.fromCharCode(97 + i)}` : ''; // _a, _b, ...
+      const fallbackAdName = adName + suffix;
+
+      let objectStorySpec;
+      if (media.type === 'video') {
+        objectStorySpec = {
+          page_id: pageId,
+          video_data: {
+            video_id: media.data.video_id,
+            message: adText,
+            title: adTitle,
+            call_to_action: { type: 'LEARN_MORE', value: { link: rawUrl } }
+          }
+        };
+      } else {
+        objectStorySpec = {
+          page_id: pageId,
+          link_data: {
+            link: cleanUrl,
+            message: adText,
+            name: adTitle,
+            image_hash: media.data.hash,
+            call_to_action: { type: 'LEARN_MORE', value: { link: rawUrl } }
+          }
+        };
+      }
+
+      const fallbackCreative = await apiPost(`${AD_ACCOUNT_ID}/adcreatives`, {
+        name: fallbackAdName + '_creative',
+        object_story_spec: JSON.stringify(objectStorySpec)
+      });
+      if (fallbackCreative.error) {
+        console.log(`  ⚠️ Creative ${i + 1}: ${fallbackCreative.error.message}`);
+        continue;
+      }
+
+      const adResult = await apiPost(`${AD_ACCOUNT_ID}/ads`, {
+        name: fallbackAdName,
+        adset_id: adsetId,
+        creative: JSON.stringify({ creative_id: fallbackCreative.id }),
+        status: 'PAUSED'
+      });
+      if (adResult.error) {
+        console.log(`  ⚠️ Ad ${i + 1}: ${adResult.error.message}`);
+        continue;
+      }
+
+      console.log(`✅ Об'явлення (fallback ${i + 1}/${allMedia.length}) створено: ${adResult.id}`);
+      createdIds.push(adResult.id);
     }
 
-    const fallbackCreative = await apiPost(`${AD_ACCOUNT_ID}/adcreatives`, {
-      name: adName + '_creative',
-      object_story_spec: JSON.stringify(objectStorySpec)
-    });
-
-    if (fallbackCreative.error) {
-      console.log('  Fallback error details:', JSON.stringify(fallbackCreative.error));
-      throw new Error(`Fallback creative: ${fallbackCreative.error.message}`);
-    }
-
-    const adResult = await apiPost(`${AD_ACCOUNT_ID}/ads`, {
-      name: adName,
-      adset_id: adsetId,
-      creative: JSON.stringify({ creative_id: fallbackCreative.id }),
-      status: 'PAUSED'
-    });
-
-    if (adResult.error) throw new Error(`Ad: ${adResult.error.message}`);
-    console.log(`✅ Об'явлення (fallback) створено: ${adResult.id}`);
-    return adResult.id;
+    if (createdIds.length === 0) throw new Error('Жодного об\'явлення не вдалося створити');
+    return createdIds.length === 1 ? createdIds[0] : createdIds;
   }
 
   const adResult = await apiPost(`${AD_ACCOUNT_ID}/ads`, {
