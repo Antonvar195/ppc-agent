@@ -12,8 +12,8 @@ const testStructure = {
     {
       name: 'Test_18-55_inst',
       daily_budget: 20000,
-      start_time: '2026-04-09T00:00:00+0300',
-      end_time: '2026-04-30T23:59:59+0300',
+      start_time: '2026-06-17T00:00:00+0300',
+      end_time: '2026-06-30T23:59:59+0300',
       optimization_goal: 'REACH',
       billing_event: 'IMPRESSIONS',
       targeting: {

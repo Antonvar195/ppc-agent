@@ -1,1 +1,265 @@
-[]
+[
+  {
+    "date": "2026-04-09T12:37:01.032Z",
+    "campaign_name": "A_Apollo_reach_All_test_0904",
+    "campaign_id": null,
+    "adsets": [],
+    "ads_count": 0
+  },
+  {
+    "date": "2026-04-09T12:44:05.541Z",
+    "campaign_name": "A_Apollo_reach_All_test_0904",
+    "campaign_id": null,
+    "adsets": [],
+    "ads_count": 0
+  },
+  {
+    "date": "2026-04-09T12:47:52.824Z",
+    "campaign_name": "A_Apollo_reach_All_test_0904",
+    "campaign_id": null,
+    "adsets": [],
+    "ads_count": 0
+  },
+  {
+    "date": "2026-04-09T12:53:28.435Z",
+    "campaign_name": "A_Apollo_reach_All_test_0904",
+    "campaign_id": "120242205746320193",
+    "adsets": [],
+    "ads_count": 0
+  },
+  {
+    "date": "2026-04-09T12:57:44.850Z",
+    "campaign_name": "A_Apollo_reach_All_test_0904",
+    "campaign_id": "120242205894710193",
+    "adsets": [],
+    "ads_count": 0
+  },
+  {
+    "date": "2026-04-09T13:09:36.419Z",
+    "campaign_name": "A_Apollo_reach_All_test_0904",
+    "campaign_id": "120242206068570193",
+    "adsets": [],
+    "ads_count": 0
+  },
+  {
+    "date": "2026-04-09T13:14:12.334Z",
+    "campaign_name": "A_Apollo_reach_All_test_0904",
+    "campaign_id": "120242206172360193",
+    "adsets": [],
+    "ads_count": 0
+  },
+  {
+    "date": "2026-04-09T13:16:49.181Z",
+    "campaign_name": "A_Apollo_reach_All_test_0904",
+    "campaign_id": "120242206206590193",
+    "adsets": [
+      {
+        "name": "All_18-35",
+        "id": "120242206207280193"
+      },
+      {
+        "name": "All_35-55",
+        "id": "120242206208090193"
+      },
+      {
+        "name": "All_wide",
+        "id": "120242206209060193"
+      }
+    ],
+    "ads_count": 0
+  },
+  {
+    "date": "2026-04-09T13:26:24.148Z",
+    "campaign_name": "A_Apollo_reach_All_test_0904",
+    "campaign_id": "120242206644220193",
+    "adsets": [
+      {
+        "name": "All_18-35_inst",
+        "id": "120242206644350193"
+      },
+      {
+        "name": "All_35-55_inst",
+        "id": "120242206644650193"
+      }
+    ],
+    "ads_count": 0
+  },
+  {
+    "date": "2026-04-09T13:30:25.204Z",
+    "campaign_name": "A_Apollo_reach_All_test_0904",
+    "campaign_id": "120242206711150193",
+    "adsets": [
+      {
+        "name": "All_18-35_inst",
+        "id": "120242206713250193"
+      },
+      {
+        "name": "All_35-55_inst",
+        "id": "120242206713590193"
+      },
+      {
+        "name": "All_wide",
+        "id": "120242206713920193"
+      }
+    ],
+    "ads_count": 0
+  },
+  {
+    "date": "2026-04-09T13:33:22.417Z",
+    "campaign_name": "A_Apollo_reach_All_april_1004",
+    "campaign_id": "120242206953780193",
+    "adsets": [
+      {
+        "name": "All_18-55_wide",
+        "id": "120242206955570193"
+      }
+    ],
+    "ads_count": 1
+  },
+  {
+    "date": "2026-04-09T13:36:59.283Z",
+    "campaign_name": "A_Apollo_reach_All_test_0904",
+    "campaign_id": "120242207209440193",
+    "adsets": [
+      {
+        "name": "All_18-35_inst",
+        "id": "120242207210190193"
+      },
+      {
+        "name": "All_35-55_inst",
+        "id": "120242207213500193"
+      },
+      {
+        "name": "All_wide",
+        "id": "120242207216790193"
+      }
+    ],
+    "ads_count": 3
+  },
+  {
+    "date": "2026-04-09T15:09:22.750Z",
+    "campaign_name": "A_Apollo_reach_All_april_1004",
+    "campaign_id": "120242211525070193",
+    "adsets": [
+      {
+        "name": "Kyiv_18-54_inst_treads",
+        "id": "120242211526150193"
+      },
+      {
+        "name": "Lviv_18-54_inst_treads",
+        "id": "120242211560710193"
+      },
+      {
+        "name": "Odessa_18-54_inst_treads",
+        "id": "120242211586370193"
+      }
+    ],
+    "ads_count": 27
+  },
+  {
+    "date": "2026-05-07T10:50:36.369Z",
+    "campaign_name": "A_Apollo_reach_All_may_1004",
+    "campaign_id": "120244227440600193",
+    "adsets": [],
+    "ads_count": 0
+  },
+  {
+    "date": "2026-05-07T11:03:11.919Z",
+    "campaign_name": "A_Apollo_reach_All_may_1005",
+    "campaign_id": "120244228180530193",
+    "adsets": [],
+    "ads_count": 0
+  },
+  {
+    "date": "2026-05-07T11:16:58.463Z",
+    "campaign_name": "A_Apollo_reach_Multi_may_1005",
+    "campaign_id": "120244228765460193",
+    "adsets": [
+      {
+        "name": "Kyiv_18-54_inst_treads",
+        "id": "120244228766550193"
+      },
+      {
+        "name": "Lviv_18-54_inst_treads",
+        "id": "120244228863470193"
+      },
+      {
+        "name": "Odessa_18-54_inst_treads",
+        "id": "120244228967400193"
+      }
+    ],
+    "ads_count": 27
+  },
+  {
+    "date": "2026-05-07T11:34:51.330Z",
+    "campaign_name": "A_Apollo_reach_Multi_may_1005",
+    "campaign_id": "120244229973250193",
+    "adsets": [
+      {
+        "name": "Kyiv_18-54_inst_treads",
+        "id": "120244229974050193"
+      },
+      {
+        "name": "Lviv_18-54_inst_treads",
+        "id": "120244230117680193"
+      },
+      {
+        "name": "Odessa_18-54_inst_treads",
+        "id": "120244230176620193"
+      }
+    ],
+    "ads_count": 27
+  },
+  {
+    "date": "2026-06-01T13:45:40.529Z",
+    "campaign_name": "A_Apollo_reach_Multi_SUMMER_TEST_1006",
+    "campaign_id": "120246405208880193",
+    "adsets": [
+      {
+        "name": "Kyiv_18-54_inst_treads",
+        "id": "120246405211160193"
+      },
+      {
+        "name": "Lviv_18-54_inst_treads",
+        "id": "120246405268760193"
+      },
+      {
+        "name": "Odessa_18-54_inst_treads",
+        "id": "120246405304680193"
+      }
+    ],
+    "ads_count": 0
+  },
+  {
+    "date": "2026-06-01T14:02:48.746Z",
+    "campaign_name": "A_Apollo_reach_Multi_june_1006",
+    "campaign_id": "120246405581540193",
+    "adsets": [
+      {
+        "name": "Kyiv_18-54_inst_treads",
+        "id": "120246405581870193"
+      },
+      {
+        "name": "Lviv_18-54_inst_treads",
+        "id": "120246405603080193"
+      },
+      {
+        "name": "Odessa_18-54_inst_treads",
+        "id": "120246405707370193"
+      }
+    ],
+    "ads_count": 0
+  },
+  {
+    "date": "2026-06-16T10:27:09.181Z",
+    "campaign_name": "A_Apollo_reach_All_june_1706",
+    "campaign_id": "120247798274560193",
+    "adsets": [
+      {
+        "name": "All_18-55_wide",
+        "id": "120247798275100193"
+      }
+    ],
+    "ads_count": 6
+  }
+]
