@@ -191,8 +191,7 @@ async function createAdWithAssets(adsetId, adName, assetFeedSpec, pageId) {
   });
 
   if (creativeResult.error) {
-    console.log('asset_feed_spec помилка:', creativeResult.error.message);
-    console.log('Використовую fallback — окреме об\'явлення на кожне медіа...');
+    console.log('ℹ️  asset_feed_spec недоступний, fallback — окреме об\'явлення на кожне медіа...');
 
     const rawUrl = assetFeedSpec.link_urls[0].website_url;
     const cleanUrl = stripUtmParams(rawUrl);
