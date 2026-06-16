@@ -87,7 +87,7 @@ ${ctx.validator}
     "adsets": [
       {
         "name": "...",
-        "daily_budget": 50000,
+        "daily_budget": 2000,
         "start_time": "2026-04-10T00:00:00+0300",
         "end_time": "2026-04-30T23:59:59+0300",
         "optimization_goal": "REACH",
@@ -104,13 +104,13 @@ ${ctx.validator}
         "pixel_id": "393751978682816",
         "ads": [
           {
-            "name": "...",
+            "name": "DDMM_1",
             "url": "https://apollo.online/clubs/",
             "text": "текст з ТЗ",
             "headline": "заголовок з ТЗ",
             "description": "опис з ТЗ (якщо є, інакше не додавай поле)",
             "dropbox_link": "https://www.dropbox.com/scl/fo/...",
-            "utm": "utm_source=facebook&utm_medium=reach..."
+            "utm": "utm_source=facebook&utm_medium=reach&utm_campaign={{campaign.name}}&utm_content={{ad.name}}&utm_term={{adset.name}}&placement={{placement}}"
           }
         ]
       }
@@ -158,17 +158,34 @@ ${ctx.validator}
 В превью показуй: "Бюджет: $20/день".
 Якщо бюджет не вказано — запитай.
 
-ВАЖЛИВО — UTM:
+КРИТИЧНО — UTM (обов'язково в кожному оголошенні):
 utm поле — рядок параметрів БЕЗ знаку "?". Система сама додасть "?" до URL.
-Приклад: "utm_source=facebook&utm_medium=reach&utm_campaign={{campaign.name}}&utm_content={{ad.name}}"
+utm_medium = тип кампанії: reach / cpc / conversion / leads
+ЗАВЖДИ додавай повний UTM рядок у кожне оголошення:
+"utm": "utm_source=facebook&utm_medium=reach&utm_campaign={{campaign.name}}&utm_content={{ad.name}}&utm_term={{adset.name}}&placement={{placement}}"
 НЕ включай URL в utm поле — тільки параметри.
+{{campaign.name}}, {{ad.name}}, {{adset.name}}, {{placement}} — це Meta макроси, вставляй їх дослівно.
+
+КРИТИЧНО — НЕЙМИНГ ОБ'ЯВЛЕНЬ:
+Формат: DDMM_N (де DDMM — дата старту, N — порядковий номер)
+Наприклад, старт 17.06, одне оголошення: name = "1706_1"
+Якщо кілька груп — нумерація наскрізна: "1706_1" в першій групі, "1706_2" у другій.
+НЕ використовуй "video" в назві — система сама визначає тип медіа.
+
+КРИТИЧНО — БЮДЖЕТ:
+Акаунт у доларах. daily_budget = $ × 100 (центи).
+$10 → 1000, $20 → 2000, $25 → 2500, $30 → 3000.
+Перед генерацією структури перевір: daily_budget / 100 = $ введений користувачем.
+В превью ЗАВЖДИ показуй: "Бюджет: $20/день" щоб користувач міг перевірити.
 
 ВАЖЛИВО для ads:
+- name: DDMM_N (обов'язково, де DDMM = дата старту, N = порядковий номер)
 - text: текст об'явлення з ТЗ (обов'язково)
 - headline: заголовок з ТЗ (обов'язково)
 - description: опис з ТЗ (тільки якщо вказано в ТЗ)
 - dropbox_link: посилання на папку Dropbox з креативами (якщо є в ТЗ — додай в кожне оголошення)
 - url: посилання на сайт (визначається автоматично за rules.md)
+- utm: ЗАВЖДИ обов'язково (дивись вище)
 
 Якщо в ТЗ є посилання на Dropbox — додай його в кожне оголошення як dropbox_link.
 Якщо немає dropbox_link — верни needs_clarification з проханням надати посилання на папку Dropbox.

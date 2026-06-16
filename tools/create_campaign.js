@@ -105,16 +105,25 @@ async function createAdset(campaignId, params, isDynamic = false) {
   return result.id;
 }
 
+// Reverse map objective → utm_medium
+const OBJECTIVE_TO_MEDIUM = {
+  'OUTCOME_AWARENESS': 'reach',
+  'OUTCOME_SALES': 'conversion',
+  'OUTCOME_TRAFFIC': 'cpc',
+  'OUTCOME_LEADS': 'leads'
+};
+
 // Создать объявление
 // campaignId + adsetTemplate needed to create per-creative sub-adsets for PAC
 async function createAd(adsetId, params, campaignId = null, adsetTemplate = null) {
   const results = [];
 
   if (params.dropbox_link) {
-    // Приєднуємо UTM до URL якщо є
-    const urlWithUtm = params.utm
-      ? params.url + (params.url.includes('?') ? '&' : '?') + params.utm
-      : params.url;
+    // UTM: use provided utm string, or build default from campaign objective
+    const utmMedium = OBJECTIVE_TO_MEDIUM[params._campaign_objective] || 'reach';
+    const defaultUtm = `utm_source=facebook&utm_medium=${utmMedium}&utm_campaign={{campaign.name}}&utm_content={{ad.name}}&utm_term={{adset.name}}&placement={{placement}}`;
+    const utmString = params.utm || defaultUtm;
+    const urlWithUtm = params.url + (params.url.includes('?') ? '&' : '?') + utmString;
 
     // Получаем все specs, сгруппированные по креативам
     const creativeSpecs = await buildAllCreativeSpecs(
@@ -132,7 +141,10 @@ async function createAd(adsetId, params, campaignId = null, adsetTemplate = null
     // Для кожного креативу — окремий dynamic adset (is_dynamic_creative = true)
     // Dynamic adset дозволяє asset_feed_spec і adapt_to_placement для PAC
     for (const { creativeId, spec } of creativeSpecs) {
-      const adName = params.name.replace(/\d+$/, '') + creativeId;
+      // Naming: {дата}_video{N} for video-only, {дата}_{N} for images/mixed
+      const dateStr = params.name.split('_')[0];
+      const hasOnlyVideos = (spec.videos?.length > 0) && !(spec.images?.length > 0);
+      const adName = hasOnlyVideos ? `${dateStr}_video${creativeId}` : `${dateStr}_${creativeId}`;
       try {
         let targetAdsetId = adsetId;
 
@@ -236,7 +248,8 @@ async function createFullStructure(structure) {
           try {
             const adResult = await createAd(adsetId, {
               ...ad,
-              page_id: structure.page_id
+              page_id: structure.page_id,
+              _campaign_objective: structure.campaign.objective
             }, results.campaign_id, adset);
             // createAd может вернуть id или массив id (при dropbox_link)
             if (Array.isArray(adResult)) {

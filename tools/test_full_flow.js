@@ -11,7 +11,7 @@ const testStructure = {
   adsets: [
     {
       name: 'Test_18-55_inst',
-      daily_budget: 20000,
+      daily_budget: 2000,
       start_time: '2026-06-17T00:00:00+0300',
       end_time: '2026-06-30T23:59:59+0300',
       optimization_goal: 'REACH',
@@ -21,14 +21,14 @@ const testStructure = {
         age_min: 18,
         age_max: 55,
         publisher_platforms: ['facebook', 'instagram'],
-        facebook_positions: ['feed'],
+        facebook_positions: ['feed', 'story', 'facebook_reels'],
         instagram_positions: ['stream', 'story', 'reels']
       },
       targeting_automation: { advantage_audience: 0 },
       pixel_id: '393751978682816',
       ads: [
         {
-          name: '0904_video1',
+          name: '1706_1',
           dropbox_link: 'https://www.dropbox.com/scl/fo/bufmdnpl1auqm5upjj8gu/ABZ0-iPdEWsoUPs8EzF1k08?dl=0&e=1&rlkey=dfu84xbd4xpb1zaovpwfel298',
           text: 'Apollo Next — фітнес для всіх. Перше тренування безкоштовно!',
           headline: 'Спробуй Apollo Next',
