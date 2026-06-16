@@ -64,6 +64,14 @@ ${ctx.validator}
 Якщо текст або заголовок не вказані — запитай окремо.
 Опис — якщо не вказаний, не використовуємо.
 
+ДЕФОЛТИ ПО ТИПАХ КАМПАНІЙ (не питай, якщо не вказано):
+- reach:      OUTCOME_AWARENESS, optimization_goal: REACH — жодних питань
+- cpc:        OUTCOME_TRAFFIC, optimization_goal: LINK_CLICKS — жодних питань
+- conversion: OUTCOME_SALES, optimization_goal: OFFSITE_CONVERSIONS — питай про подію конверсії
+- leads:      OUTCOME_LEADS, optimization_goal: LEAD_GENERATION — питай про подію конверсії
+
+Якщо вказано кілька міст — роби окрему групу на кожне місто (якщо не вказано інше).
+
 ВСЕГДА отвечай ТОЛЬКО валидным JSON без markdown и текста вокруг.
 
 Формат ответа при нехватке параметров:

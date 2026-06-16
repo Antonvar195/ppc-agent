@@ -139,11 +139,14 @@ async function createAd(adsetId, params, campaignId = null, adsetTemplate = null
 
     // Для кожного креативу — окремий dynamic adset (is_dynamic_creative = true)
     // Dynamic adset дозволяє asset_feed_spec і adapt_to_placement для PAC
-    for (const { creativeId, spec } of creativeSpecs) {
-      // Naming: {дата}_video{N} for video-only, {дата}_{N} for images/mixed
+    const creativeOffset = parseInt(params._creative_offset) || 0;
+    for (let idx = 0; idx < creativeSpecs.length; idx++) {
+      const { creativeId, spec } = creativeSpecs[idx];
+      // Sequential global numbering: offset + position in this batch
+      const absoluteNum = creativeOffset + idx + 1;
       const dateStr = params.name.split('_')[0];
       const hasOnlyVideos = (spec.videos?.length > 0) && !(spec.images?.length > 0);
-      const adName = hasOnlyVideos ? `${dateStr}_video${creativeId}` : `${dateStr}_${creativeId}`;
+      const adName = hasOnlyVideos ? `${dateStr}_video${absoluteNum}` : `${dateStr}_${absoluteNum}`;
       try {
         let targetAdsetId = adsetId;
 
@@ -157,11 +160,8 @@ async function createAd(adsetId, params, campaignId = null, adsetTemplate = null
         }
 
         const adId = await createAdWithAssets(targetAdsetId, adName, spec, params.page_id, utmString);
-        if (Array.isArray(adId)) {
-          results.push(...adId);
-        } else {
-          results.push(adId);
-        }
+        const ids = Array.isArray(adId) ? adId : [adId];
+        ids.forEach(id => results.push({ id, name: adName }));
       } catch (err) {
         console.log(`⚠️ ${adName}: ${err.message}`);
       }
@@ -237,6 +237,8 @@ async function createFullStructure(structure) {
     results.campaign_id = await createCampaign(structure.campaign);
 
     // 2. Создаём группы и объявления
+    let globalCreativeOffset = 0; // sequential ad numbering across all adsets
+
     for (const adset of structure.adsets) {
       try {
         const adsetId = await createAdset(results.campaign_id, adset);
@@ -248,15 +250,20 @@ async function createFullStructure(structure) {
             const adResult = await createAd(adsetId, {
               ...ad,
               page_id: structure.page_id,
-              _campaign_objective: structure.campaign.objective
+              _campaign_objective: structure.campaign.objective,
+              _creative_offset: globalCreativeOffset
             }, results.campaign_id, adset);
-            // createAd может вернуть id или массив id (при dropbox_link)
+            // createAd returns array of {id,name} for dropbox, or plain id
             if (Array.isArray(adResult)) {
-              adResult.forEach((id, i) => {
-                results.ads.push({ name: ad.name + '_' + (i + 1), id, adset: adset.name });
+              adResult.forEach(item => {
+                const adId = item?.id || item;
+                const adName = item?.name || ad.name;
+                results.ads.push({ name: adName, id: adId, adset: adset.name });
               });
+              globalCreativeOffset += adResult.length;
             } else {
               results.ads.push({ name: ad.name, id: adResult, adset: adset.name });
+              globalCreativeOffset += 1;
             }
           } catch (err) {
             results.errors.push(`Объявление ${ad.name}: ${err.message}`);
