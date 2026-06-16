@@ -115,7 +115,8 @@ const OBJECTIVE_TO_MEDIUM = {
 };
 
 // Создать объявление
-// campaignId + adsetTemplate needed to create per-creative sub-adsets for PAC
+// campaignId + adsetTemplate — needed to create one dynamic sub-adset per creative
+// (Meta limits is_dynamic_creative adsets to 1 ad each)
 async function createAd(adsetId, params, campaignId = null, adsetTemplate = null) {
   const results = [];
 
@@ -125,7 +126,6 @@ async function createAd(adsetId, params, campaignId = null, adsetTemplate = null
     const defaultUtm = `utm_source=facebook&utm_medium=${utmMedium}&utm_campaign={{campaign.name}}&utm_content={{ad.name}}&utm_term={{adset.name}}&placement={{placement}}`;
     const utmString = params.utm || defaultUtm;
 
-    // Получаем все specs, сгруппированные по креативам (передаём чистый URL без UTM)
     const creativeSpecs = await buildAllCreativeSpecs(
       params.dropbox_link,
       params.text || 'Apollo Next — фітнес для всіх',
@@ -138,12 +138,9 @@ async function createAd(adsetId, params, campaignId = null, adsetTemplate = null
       return results;
     }
 
-    // Для кожного креативу — окремий dynamic adset (is_dynamic_creative = true)
-    // Dynamic adset дозволяє asset_feed_spec і adapt_to_placement для PAC
     const creativeOffset = parseInt(params._creative_offset) || 0;
     for (let idx = 0; idx < creativeSpecs.length; idx++) {
       const { creativeId, spec } = creativeSpecs[idx];
-      // Sequential global numbering: offset + position in this batch
       const absoluteNum = creativeOffset + idx + 1;
       const dateStr = params.name.split('_')[0];
       const hasOnlyVideos = (spec.videos?.length > 0) && !(spec.images?.length > 0);
@@ -151,7 +148,7 @@ async function createAd(adsetId, params, campaignId = null, adsetTemplate = null
       try {
         let targetAdsetId = adsetId;
 
-        // Якщо є campaignId і шаблон adset — створюємо окремий dynamic adset для цього креативу
+        // Meta limits is_dynamic_creative adsets to 1 ad — create one sub-adset per creative
         if (campaignId && adsetTemplate) {
           const subAdsetName = (adsetTemplate.name || params.name) + '_' + creativeId;
           targetAdsetId = await createAdset(campaignId, {
@@ -162,7 +159,7 @@ async function createAd(adsetId, params, campaignId = null, adsetTemplate = null
 
         const adId = await createAdWithAssets(targetAdsetId, adName, spec, params.page_id, utmString);
         const ids = Array.isArray(adId) ? adId : [adId];
-        ids.forEach(id => results.push({ id, name: adName }));
+        ids.forEach(id => results.push({ id, name: adName, adset_id: targetAdsetId }));
       } catch (err) {
         console.log(`⚠️ ${adName}: ${err.message}`);
       }
@@ -242,8 +239,14 @@ async function createFullStructure(structure) {
 
     for (const adset of structure.adsets) {
       try {
-        const adsetId = await createAdset(results.campaign_id, adset);
-        results.adsets.push({ name: adset.name, id: adsetId });
+        const hasDynamicAds = adset.ads.some(ad => ad.dropbox_link);
+        // If ads use Dropbox (PAC), sub-adsets are created inside createAd — skip the parent
+        // Meta limits is_dynamic_creative adsets to 1 ad, so we need 1 sub-adset per creative
+        let adsetId = null;
+        if (!hasDynamicAds) {
+          adsetId = await createAdset(results.campaign_id, adset);
+          results.adsets.push({ name: adset.name, id: adsetId });
+        }
 
         // 3. Создаём объявления в группе
         for (const ad of adset.ads) {
@@ -253,13 +256,16 @@ async function createFullStructure(structure) {
               page_id: structure.page_id,
               _campaign_objective: structure.campaign.objective,
               _creative_offset: globalCreativeOffset
-            }, results.campaign_id, adset);
-            // createAd returns array of {id,name} for dropbox, or plain id
+            }, hasDynamicAds ? results.campaign_id : null, hasDynamicAds ? adset : null);
+            // createAd returns array of {id,name,adset_id?} for dropbox, or plain id
             if (Array.isArray(adResult)) {
               adResult.forEach(item => {
                 const adId = item?.id || item;
                 const adName = item?.name || ad.name;
                 results.ads.push({ name: adName, id: adId, adset: adset.name });
+                if (item?.adset_id) {
+                  results.adsets.push({ name: adName + '_adset', id: item.adset_id });
+                }
               });
               globalCreativeOffset += adResult.length;
             } else {
