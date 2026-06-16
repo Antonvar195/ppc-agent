@@ -233,9 +233,12 @@ async function buildAllCreativeSpecs(dropboxLink, adText, adHeadline, destinatio
 async function createAdWithAssets(adsetId, adName, assetFeedSpec, pageId) {
   console.log(`\n📄 Створюю об'явлення: ${adName}`);
 
+  const topLevelUrl = assetFeedSpec.link_urls[0].website_url;
+
   const creativeResult = await apiPost(`${AD_ACCOUNT_ID}/adcreatives`, {
     name: adName + '_creative',
     object_story_spec: JSON.stringify({ page_id: pageId }),
+    link_url: topLevelUrl,
     asset_feed_spec: JSON.stringify(assetFeedSpec)
   });
 
