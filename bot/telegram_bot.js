@@ -20,10 +20,59 @@ bot.onText(/\/start/, (msg) => {
     '👋 PPC Agent Apollo Next\n\n' +
     'Команды:\n' +
     '/launch — запустить кампанию\n' +
+    '/report — аналитика за 7 дней\n' +
+    '/report14 — аналитика за 14 дней\n' +
+    '/report30 — аналитика за 30 дней\n' +
     '/status — статус активных кампаний\n' +
     '/help — помощь\n\n' +
     'Или просто напиши ТЗ на запуск.'
   );
+});
+
+// ─── АНАЛІТИКА ────────────────────────────────────────────────────────────────
+
+async function handleReport(chatId, days) {
+  await bot.sendMessage(chatId, `⏳ Збираю дані за ${days} днів...`);
+  try {
+    const { getAnalyticsReport, formatReportText } = require('../tools/analytics');
+    const { analyzeMetrics } = require('./analytics_agent');
+
+    const report = await getAnalyticsReport(days);
+
+    // Перевірка: чи є взагалі дані
+    if (report.total.current.impressions === 0 && report.total.previous.impressions === 0) {
+      await bot.sendMessage(chatId, '📭 Немає даних за цей period. Можливо, кампанії не витрачали бюджет.');
+      return;
+    }
+
+    // 1. Числовий звіт
+    const reportText = formatReportText(report);
+    await bot.sendMessage(chatId, reportText, { parse_mode: 'HTML' });
+
+    // 2. LLM аналіз
+    await bot.sendMessage(chatId, '🤖 Аналізую...');
+    const analysis = await analyzeMetrics(report);
+    await bot.sendMessage(chatId, analysis, { parse_mode: 'Markdown' });
+
+  } catch (err) {
+    console.error('handleReport error:', err);
+    await bot.sendMessage(chatId, '❌ Помилка отримання аналітики: ' + err.message);
+  }
+}
+
+bot.onText(/\/report$/, (msg) => {
+  if (!isAllowed(msg.from.id)) return;
+  handleReport(msg.chat.id, 7);
+});
+
+bot.onText(/\/report14/, (msg) => {
+  if (!isAllowed(msg.from.id)) return;
+  handleReport(msg.chat.id, 14);
+});
+
+bot.onText(/\/report30/, (msg) => {
+  if (!isAllowed(msg.from.id)) return;
+  handleReport(msg.chat.id, 30);
 });
 
 // Діагностика Dropbox
