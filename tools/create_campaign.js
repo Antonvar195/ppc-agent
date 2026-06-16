@@ -94,6 +94,7 @@ async function createAdset(campaignId, params, isDynamic = false) {
   };
   if (params.end_time) adsetParams.end_time = params.end_time;
   if (isDynamic) adsetParams.is_dynamic_creative = true;
+  if (params.promoted_object) adsetParams.promoted_object = JSON.stringify(params.promoted_object);
 
   const result = await apiPost(`${AD_ACCOUNT_ID}/adsets`, adsetParams);
 
