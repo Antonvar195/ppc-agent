@@ -27,7 +27,13 @@ async function start() {
   require('./server.js');
 
   // Запускаємо Telegram бот
-  require('./bot/telegram_bot.js');
+  const bot = require('./bot/telegram_bot.js');
+
+  // Запускаємо планувальник (алерти + щоденний дайджест)
+  const scheduler = require('./tools/scheduler');
+  const CHAT_ID = parseInt(process.env.TELEGRAM_USER_ID);
+  scheduler.init((chatId, text, opts) => bot.sendMessage(chatId, text, opts), CHAT_ID);
+  scheduler.start();
 }
 
 start().catch(console.error);

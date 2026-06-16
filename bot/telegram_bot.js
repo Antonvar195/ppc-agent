@@ -18,14 +18,19 @@ bot.onText(/\/start/, (msg) => {
 
   bot.sendMessage(msg.chat.id,
     '👋 PPC Agent Apollo Next\n\n' +
-    'Команды:\n' +
-    '/launch — запустить кампанию\n' +
-    '/report — аналитика за 7 дней\n' +
-    '/report14 — аналитика за 14 дней\n' +
-    '/report30 — аналитика за 30 дней\n' +
-    '/status — статус активных кампаний\n' +
-    '/help — помощь\n\n' +
-    'Или просто напиши ТЗ на запуск.'
+    '<b>Запуск:</b>\n' +
+    'Просто напиши ТЗ — запущу кампанию\n\n' +
+    '<b>Аналитика:</b>\n' +
+    '/report — за 7 дней\n' +
+    '/report14 — за 14 дней\n' +
+    '/report30 — за 30 дней\n' +
+    '/digest — дайджест прямо сейчас\n\n' +
+    '<b>Сплит-тест:</b>\n' +
+    '/compare — сравнить два варианта\n\n' +
+    '<b>Алерты:</b>\n' +
+    '/alerts — проверить сейчас\n\n' +
+    '/help — примеры ТЗ',
+    { parse_mode: 'HTML' }
   );
 });
 
@@ -139,6 +144,9 @@ bot.onText(/\/help/, (msg) => {
 });
 
 // Основной обработчик сообщений
+// compareSession оголошується тут, щоб /compare мав доступ нижче
+const compareSession = {};
+
 bot.on('message', async (msg) => {
   if (!isAllowed(msg.from.id)) return;
   if (msg.text && msg.text.startsWith('/')) return;
@@ -147,25 +155,60 @@ bot.on('message', async (msg) => {
   const userId = msg.from.id;
   const text = msg.text;
 
-  // Если ждём апрув
+  // ─ Сплітест-діалог ─────────────────────────────────────
+  const cs = compareSession[userId];
+  if (cs) {
+    if (cs.step === 'variantA') {
+      cs.queryA = text.trim();
+      cs.step = 'variantB';
+      await bot.sendMessage(chatId,
+        `✅ Варіант A: <b>${cs.queryA}</b>\n\nТепер назва <b>варіанта B</b>:`,
+        { parse_mode: 'HTML' }
+      );
+      return;
+    }
+    if (cs.step === 'variantB') {
+      cs.queryB = text.trim();
+      cs.step = 'days';
+      await bot.sendMessage(chatId,
+        `✅ Варіант B: <b>${cs.queryB}</b>\n\nЗа скільки днів? (7 / 14 / 30)`,
+        { parse_mode: 'HTML' }
+      );
+      return;
+    }
+    if (cs.step === 'days') {
+      const days = parseInt(text) || 7;
+      const { queryA, queryB } = cs;
+      delete compareSession[userId];
+      await bot.sendMessage(chatId, `⏳ Порівнюю "${queryA}" vs "${queryB}" за ${days} днів...`);
+      try {
+        const { runSplitTest } = require('../tools/split_test');
+        const result = await runSplitTest(queryA, queryB, days);
+        await bot.sendMessage(chatId, result.report, { parse_mode: 'HTML' });
+        if (result.recommendation) {
+          await bot.sendMessage(chatId, `💡 <b>Рекомендація:</b>\n${result.recommendation}`, { parse_mode: 'HTML' });
+        }
+      } catch (e) {
+        await bot.sendMessage(chatId, '❌ Помилка: ' + e.message);
+      }
+      return;
+    }
+  }
+
+  // ─ Основний флоу ───────────────────────────────────────
   if (sessions[userId] && sessions[userId].state === 'awaiting_approval') {
     await handleApproval(chatId, userId, text);
     return;
   }
-
-  // Если ждём уточнения
   if (sessions[userId] && sessions[userId].state === 'awaiting_clarification') {
     await handleClarification(chatId, userId, text);
     return;
   }
-
-  // Якщо чекаємо рішення по помилках
   if (sessions[userId] && sessions[userId].state === 'awaiting_error_fix') {
     await handleErrorFix(chatId, userId, text);
     return;
   }
 
-  // Новое ТЗ
   await handleNewBrief(chatId, userId, text);
 });
 
@@ -382,6 +425,47 @@ async function handleClarification(chatId, userId, text) {
   sessions[userId].state = 'processing';
   await handleNewBrief(chatId, userId, sessions[userId].brief);
 }
+
+// ─── АЛЕРТИ ──────────────────────────────────────────────────────────────────
+
+bot.onText(/\/alerts/, async (msg) => {
+  if (!isAllowed(msg.from.id)) return;
+  const chatId = msg.chat.id;
+  await bot.sendMessage(chatId, '🔍 Перевіряю аномалії...');
+  try {
+    const { checkAlerts, formatAlerts } = require('../tools/alerts');
+    const alerts = await checkAlerts();
+    if (alerts.length === 0) {
+      await bot.sendMessage(chatId, '✅ Аномалій не знайдено. Всі кампанії в нормі.');
+    } else {
+      await bot.sendMessage(chatId, formatAlerts(alerts), { parse_mode: 'HTML' });
+    }
+  } catch (e) {
+    await bot.sendMessage(chatId, '❌ Помилка: ' + e.message);
+  }
+});
+
+// ─── ДАЙДЖЕСТ ─────────────────────────────────────────────────────────────────
+
+bot.onText(/\/digest/, async (msg) => {
+  if (!isAllowed(msg.from.id)) return;
+  const { triggerDigest } = require('../tools/scheduler');
+  await triggerDigest();
+});
+
+// ─── СПЛІТЕСТ ────────────────────────────────────────────────────────────────
+
+bot.onText(/\/compare/, async (msg) => {
+  if (!isAllowed(msg.from.id)) return;
+  const chatId = msg.chat.id;
+  compareSession[msg.from.id] = { step: 'variantA' };
+  await bot.sendMessage(chatId,
+    '🧪 <b>Сплітест</b>\n\n' +
+    'Напиши частину назви <b>варіанта A</b>\n' +
+    '<i>(наприклад: "reach_Kyiv" або "IF_039")</i>',
+    { parse_mode: 'HTML' }
+  );
+});
 
 console.log('🤖 PPC Agent Bot запущен...');
 
