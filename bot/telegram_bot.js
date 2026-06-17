@@ -143,6 +143,91 @@ bot.onText(/\/help/, (msg) => {
   );
 });
 
+// ─── AGENT MODE ──────────────────────────────────────────────────────────────
+
+// Сесії агентського режиму: userId → { messages, waitingForInput, resolveInput }
+const agentSessions = {};
+
+bot.onText(/\/agent/, async (msg) => {
+  if (!isAllowed(msg.from.id)) return;
+  const chatId = msg.chat.id;
+  const userId = msg.from.id;
+
+  if (agentSessions[userId]) {
+    delete agentSessions[userId];
+    await bot.sendMessage(chatId, '🔴 Agent mode вимкнено. Повернувся до стандартного режиму.');
+  } else {
+    agentSessions[userId] = { messages: [], waitingForInput: false };
+    await bot.sendMessage(chatId,
+      '🤖 <b>Agent mode увімкнено</b>\n\n' +
+      'Пиши що треба зробити — я сам зберу контекст, напишу скрипти, виправлю помилки.\n\n' +
+      'Приклади:\n' +
+      '• "зроби кампанію як 120238799722260193 для клубу 040, ось креативи [dropbox]"\n' +
+      '• "перевір аналітику за 7 днів і скажи що оптимізувати"\n' +
+      '• "знайди аномалії в активних кампаніях"\n\n' +
+      '/agent — вимкнути',
+      { parse_mode: 'HTML' }
+    );
+  }
+});
+
+async function handleAgentMessage(chatId, userId, text) {
+  const session = agentSessions[userId];
+
+  // Якщо агент чекає відповіді на питання — резолвимо проміс
+  if (session.waitingForInput && session.resolveInput) {
+    session.resolveInput(text);
+    session.waitingForInput = false;
+    session.resolveInput = null;
+    return;
+  }
+
+  // Нове повідомлення → запускаємо loop
+  session.messages.push({ role: 'user', content: text });
+
+  // onMessage: відправити текст юзеру (довгі повідомлення розбиваємо)
+  const onMessage = async (txt) => {
+    const chunks = splitMessage(txt, 4000);
+    for (const chunk of chunks) {
+      await bot.sendMessage(chatId, chunk).catch(() =>
+        bot.sendMessage(chatId, chunk.replace(/[<>]/g, ''))
+      );
+    }
+  };
+
+  // onAskUser: відправити питання і дочекатися відповіді юзера
+  const onAskUser = (question) => {
+    return new Promise((resolve) => {
+      bot.sendMessage(chatId, '❓ ' + question);
+      session.waitingForInput = true;
+      session.resolveInput = resolve;
+    });
+  };
+
+  try {
+    await bot.sendMessage(chatId, '🤔 Думаю...');
+    const { runAgentLoop } = require('./agent_orchestrator');
+    session.messages = await runAgentLoop(session.messages, onMessage, onAskUser);
+  } catch (err) {
+    console.error('agent error:', err);
+    await bot.sendMessage(chatId, '❌ Помилка агента: ' + err.message);
+  }
+}
+
+// Розбити довге повідомлення на частини
+function splitMessage(text, maxLen) {
+  if (text.length <= maxLen) return [text];
+  const chunks = [];
+  let i = 0;
+  while (i < text.length) {
+    chunks.push(text.substring(i, i + maxLen));
+    i += maxLen;
+  }
+  return chunks;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 // Основной обработчик сообщений
 // compareSession оголошується тут, щоб /compare мав доступ нижче
 const compareSession = {};
@@ -154,6 +239,12 @@ bot.on('message', async (msg) => {
   const chatId = msg.chat.id;
   const userId = msg.from.id;
   const text = msg.text;
+
+  // ─ Agent mode ──────────────────────────────────────────
+  if (agentSessions[userId]) {
+    await handleAgentMessage(chatId, userId, text);
+    return;
+  }
 
   // ─ Сплітест-діалог ─────────────────────────────────────
   const cs = compareSession[userId];
