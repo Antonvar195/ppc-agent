@@ -94,15 +94,19 @@ leads      — ліди
 ---
 
 ## НЕЙМИНГ КАМПАНІЙ
-Формат: A_Apollo_{тип}_{гео}_{назва}_{дата}
+Формат: {префікс}_Apollo_{тип}_{гео}_{назва}_{дата}
+
+Префікси:
+- AI_Apollo — кампанія створена агентом (Claude Code або Telegram agent mode)
+- A_Apollo  — кампанія створена вручну людиною
 
 Приклади:
-A_Apollo_reach_All_april_0204
-A_Apollo_conversion_Kyiv_summer_1506
+AI_Apollo_reach_All_april_0204
+AI_Apollo_conversion_Kyiv_summer_1506
 A_Apollo_leads_BC_promo_0105
 
 Правила:
-- A_Apollo — фіксовано, ніколи не змінюється
+- Якщо кампанію запускає агент — завжди AI_Apollo
 - тип — reach / conversion / cpc / leads
 - гео — код міста або All
 - назва — придумується під період/акцію
