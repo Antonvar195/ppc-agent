@@ -148,7 +148,7 @@ async function executeTool(toolName, input, onAskUser) {
     }
 
     case 'meta_api_get': {
-      const { apiGet } = require('./meta_api');
+      const { apiGet } = require('../tools/meta_api');
       const params = { ...(input.params || {}) };
       if (input.fields) params.fields = input.fields;
       const result = await apiGet(input.endpoint, params);
@@ -245,6 +245,12 @@ ${JSON.stringify(history, null, 2)}
 - Всі кампанії створюються зі статусом PAUSED
 - Після виконання завдання — короткий підсумок юзеру
 
+ЕФЕКТИВНІСТЬ:
+- Для перегляду кампанії досить: /campaigns → /adsets з fields=id,name,status,daily_budget → стоп. Не лізь в кожен adset окремо якщо не просили.
+- Не роби більше 3-4 API дзвінків для простих задач типу "подивись структуру"
+- Якщо отримав достатньо інформації — відповідай, не продовжуй копати
+- execute_script використовуй тільки коли потрібно щось СТВОРИТИ або ЗМІНИТИ, не для читання (для читання є meta_api_get)
+
 Сьогодні: ${new Date().toISOString().split('T')[0]}`;
 }
 
@@ -258,7 +264,7 @@ ${JSON.stringify(history, null, 2)}
  */
 async function runAgentLoop(messages, onMessage, onAskUser) {
   let iteration = 0;
-  const MAX_ITERATIONS = 20;
+  const MAX_ITERATIONS = 40;
 
   while (iteration < MAX_ITERATIONS) {
     iteration++;
