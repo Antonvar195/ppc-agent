@@ -1,0 +1,30 @@
+{
+  "AP_ADS_1_9x16.mp4": {
+    "video_id": "1314814107474800",
+    "thumb_hash": "d86882f9eff29e5e9d1607b3c9fcb35f"
+  },
+  "AP_ADS_2_4x4.mp4": {
+    "video_id": "999405399673541",
+    "thumb_hash": "d3451440ee5843dc8ebd324b0be334f2"
+  },
+  "AP_ADS_2_9x16.mp4": {
+    "video_id": "2276127136125412",
+    "thumb_hash": "50930878d3ab7b71d1c002a971e196ed"
+  },
+  "AP_ADS_3_4x4.mp4": {
+    "video_id": "36810255195255446",
+    "thumb_hash": "9a707d526a35d1189db66106f8ed7ca5"
+  },
+  "AP_ADS_3_9x16.mp4": {
+    "video_id": "1423537866281100",
+    "thumb_hash": "206205182bfa90486c6011a002989c56"
+  },
+  "AP_ADS_4_4x4.mp4": {
+    "video_id": "3707155296114596",
+    "thumb_hash": "ea84f68adabe1f6c364b681804e562c0"
+  },
+  "AP_ADS_4_9x16.mp4": {
+    "video_id": "27110275711988412",
+    "thumb_hash": "11a5c8b7d286428eeeb97cfad4a14482"
+  }
+}

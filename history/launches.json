@@ -261,5 +261,149 @@
       }
     ],
     "ads_count": 6
+  },
+  {
+    "date": "2026-06-30T16:07:16.388Z",
+    "campaign_name": "A_Apollo_reach_Vinnitsa_july_0107",
+    "campaign_id": "120249089738490193",
+    "adsets": [
+      {
+        "name": "Vinnitsa_18-55_inst_treads_1",
+        "id": "120249089741740193"
+      },
+      {
+        "name": "Vinnitsa_18-55_inst_treads_2",
+        "id": "120249089744230193"
+      },
+      {
+        "name": "Vinnitsa_18-55_inst_treads_3",
+        "id": "120249089746190193"
+      },
+      {
+        "name": "Vinnitsa_18-55_inst_treads_4",
+        "id": "120249089758160193"
+      }
+    ],
+    "ads_count": 16
+  },
+  {
+    "date": "2026-06-30T16:07:16.389Z",
+    "campaign_name": "A_Apollo_reach_BC_july_0107",
+    "campaign_id": "120249089769640193",
+    "adsets": [
+      {
+        "name": "BC_18-55_inst_treads_1",
+        "id": "120249089774380193"
+      },
+      {
+        "name": "BC_18-55_inst_treads_2",
+        "id": "120249089779270193"
+      },
+      {
+        "name": "BC_18-55_inst_treads_3",
+        "id": "120249089783920193"
+      },
+      {
+        "name": "BC_18-55_inst_treads_4",
+        "id": "120249089795940193"
+      }
+    ],
+    "ads_count": 16
+  },
+  {
+    "date": "2026-06-30T16:07:16.389Z",
+    "campaign_name": "A_Apollo_reach_Odessa_july_0107",
+    "campaign_id": "120249089820280193",
+    "adsets": [
+      {
+        "name": "Odessa_18-55_inst_treads_1",
+        "id": "120249089829850193"
+      },
+      {
+        "name": "Odessa_18-55_inst_treads_2",
+        "id": "120249089840440193"
+      },
+      {
+        "name": "Odessa_18-55_inst_treads_3",
+        "id": "120249089850110193"
+      },
+      {
+        "name": "Odessa_18-55_inst_treads_4",
+        "id": "120249089857320193"
+      }
+    ],
+    "ads_count": 16
+  },
+  {
+    "date": "2026-06-30T16:07:16.389Z",
+    "campaign_name": "A_Apollo_reach_Lviv_july_0107",
+    "campaign_id": "120249089866930193",
+    "adsets": [
+      {
+        "name": "Lviv_18-55_inst_treads_1",
+        "id": "120249089871440193"
+      },
+      {
+        "name": "Lviv_18-55_inst_treads_2",
+        "id": "120249089876660193"
+      },
+      {
+        "name": "Lviv_18-55_inst_treads_3",
+        "id": "120249089881980193"
+      },
+      {
+        "name": "Lviv_18-55_inst_treads_4",
+        "id": "120249089887750193"
+      }
+    ],
+    "ads_count": 16
+  },
+  {
+    "date": "2026-06-30T16:07:16.389Z",
+    "campaign_name": "A_Apollo_reach_Kyiv_july_0107",
+    "campaign_id": "120249089896920193",
+    "adsets": [
+      {
+        "name": "Kyiv_18-55_inst_treads_1",
+        "id": "120249089903090193"
+      },
+      {
+        "name": "Kyiv_18-55_inst_treads_2",
+        "id": "120249089910590193"
+      },
+      {
+        "name": "Kyiv_18-55_inst_treads_3",
+        "id": "120249089914550193"
+      },
+      {
+        "name": "Kyiv_18-55_inst_treads_4",
+        "id": "120249089921280193"
+      }
+    ],
+    "ads_count": 16
+  },
+  {
+    "date": "2026-06-30T16:41:48.078Z",
+    "campaign_name": "AI_Apollo_sales_all_clubs_july_0107",
+    "campaign_id": "120249091142180193",
+    "adsets": [
+      {
+        "name": "all_clubs_rem_30d_18-55_inst_treads",
+        "id": "120249091149910193"
+      },
+      {
+        "name": "all_clubs_cancelled-base+engagement_365_18-55_inst",
+        "id": "120249091158050193"
+      },
+      {
+        "name": "all_clubs_13-19_inst_treads",
+        "id": "120249091163750193"
+      },
+      {
+        "name": "all_clubs_20-55_inst_treads",
+        "id": "120249091174080193"
+      }
+    ],
+    "ads_count": 16
   }
 ]
