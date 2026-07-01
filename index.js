@@ -29,11 +29,18 @@ async function start() {
   // Запускаємо Telegram бот
   const bot = require('./bot/telegram_bot.js');
 
-  // Запускаємо планувальник (алерти + щоденний дайджест)
-  const scheduler = require('./tools/scheduler');
-  const CHAT_ID = parseInt(process.env.TELEGRAM_USER_ID);
-  scheduler.init((chatId, text, opts) => bot.sendMessage(chatId, text, opts), CHAT_ID);
-  scheduler.start();
+  // Планувальник (алерти + щоденний дайджест) — ТИМЧАСОВО ВИМКНЕНО за запитом користувача.
+  // Бот і команди працюють, але автоматична розсилка статистики та алертів не йде.
+  // Щоб увімкнути назад — постав SCHEDULER_ENABLED=true в .env (або прибери умову).
+  if (process.env.SCHEDULER_ENABLED === 'true') {
+    const scheduler = require('./tools/scheduler');
+    const CHAT_ID = parseInt(process.env.TELEGRAM_USER_ID);
+    scheduler.init((chatId, text, opts) => bot.sendMessage(chatId, text, opts), CHAT_ID);
+    scheduler.start();
+    console.log('📅 Scheduler enabled (SCHEDULER_ENABLED=true)');
+  } else {
+    console.log('⏸  Scheduler disabled — no auto stats/alerts (set SCHEDULER_ENABLED=true to re-enable)');
+  }
 }
 
 start().catch(console.error);
