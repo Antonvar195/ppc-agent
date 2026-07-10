@@ -509,5 +509,40 @@
       }
     ],
     "ads_count": 28
+  },
+  {
+    "date": "2026-07-10",
+    "campaign_name": "AI_Apollo_sales_Kyiv_040_1007",
+    "campaign_id": "120249417437040193",
+    "adsets": [
+      {
+        "name": "local_kyiv_segment_1",
+        "id": "120249417438220193",
+        "ads": [
+          "1007_1",
+          "1007_2",
+          "1007_3"
+        ]
+      },
+      {
+        "name": "engagement_kyiv_segment_1",
+        "id": "120249417445900193",
+        "ads": [
+          "1007_1",
+          "1007_2",
+          "1007_3"
+        ]
+      },
+      {
+        "name": "advantage_kyiv_segment_1",
+        "id": "120249417459430193",
+        "ads": [
+          "1007_1",
+          "1007_2",
+          "1007_3"
+        ]
+      }
+    ],
+    "ads_count": 9
   }
 ]
