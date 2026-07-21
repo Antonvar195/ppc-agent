@@ -544,5 +544,77 @@
       }
     ],
     "ads_count": 9
+  },
+  {
+    "date": "2026-07-21",
+    "campaign_name": "AI_Apollo_sales_ZHY_041_2107",
+    "campaign_id": "120249681412190193",
+    "adsets": [
+      {
+        "name": "lookalike_clubs_page_30_segment_2",
+        "id": "120249681412360193",
+        "ads": [
+          "map",
+          "people_athlete",
+          "people_couple"
+        ]
+      },
+      {
+        "name": "advantage_ZHY_segment_1",
+        "id": "120249681414800193",
+        "ads": [
+          "zhy_girl(video)"
+        ]
+      },
+      {
+        "name": "advantage_ZHY_segment_2",
+        "id": "120249681415980193",
+        "ads": [
+          "zhy_girl(video)"
+        ]
+      },
+      {
+        "name": "local_ZHY_segment_1",
+        "id": "120249681416670193",
+        "ads": [
+          "zhy_girl(video)"
+        ]
+      },
+      {
+        "name": "local_ZHY_segment_2",
+        "id": "120249681417910193",
+        "ads": [
+          "zhy_girl(video)"
+        ]
+      },
+      {
+        "name": "lookalike_clubs_page_30_segment_1",
+        "id": "120249681419090193",
+        "ads": [
+          "club1",
+          "club2",
+          "club3"
+        ]
+      },
+      {
+        "name": "rem_30_ZHY_segment_2",
+        "id": "120249681422330193",
+        "ads": [
+          "map",
+          "people_athlete",
+          "people_couple"
+        ]
+      },
+      {
+        "name": "rem_30_segment_1",
+        "id": "120249681425850193",
+        "ads": [
+          "club1",
+          "club2",
+          "club3"
+        ]
+      }
+    ],
+    "ads_count": 16
   }
 ]
