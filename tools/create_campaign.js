@@ -569,15 +569,11 @@ async function validateFullStructure(structure) {
       adset.targeting_automation = { advantage_audience: 0 };
       autoFixed.push(`Додано targeting_automation до групи "${adset.name}"`);
     }
-    // Auto-fix: видаляємо Threads — несумісний з більшістю objective
-    if (adset.targeting && adset.targeting.publisher_platforms) {
-      const before = adset.targeting.publisher_platforms;
-      adset.targeting.publisher_platforms = before.filter(p => p !== 'threads');
-      if (adset.targeting.publisher_platforms.length < before.length) {
-        delete adset.targeting.threads_positions;
-        autoFixed.push(`Видалено Threads з плейсментів групи "${adset.name}"`);
-      }
-    }
+    // Threads НЕ вирізаємо. Заміряно 29.07.2026 на живому акаунті за 30 днів:
+    // Threads — CPA $35 при 25 покупках, це найкращий плейсмент.
+    // Для порівняння: Instagram $62, Facebook $51. CTR у Threads найнижчий
+    // (0.44%), але конверсія в покупку найвища — судити по CTR тут не можна.
+    // Історичне обмеження ("несумісний з більшістю objective") більше не діє.
     // Auto-fix custom_locations → правильний формат Meta API
     if (adset.targeting && (
       adset.targeting.custom_locations ||
