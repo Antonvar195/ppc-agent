@@ -616,5 +616,25 @@
       }
     ],
     "ads_count": 16
+  },
+  {
+    "date": "2026-07-29",
+    "campaign_name": "AI_Apollo_sales_Kyiv_040_0108",
+    "campaign_id": "120249881354580193",
+    "adsets": [
+      {
+        "name": "advantage_kyiv_segment_1",
+        "id": "120249881354870193"
+      },
+      {
+        "name": "engagement_kyiv_segment_1",
+        "id": "120249881355810193"
+      },
+      {
+        "name": "local_kyiv_segment_1",
+        "id": "120249881356890193"
+      }
+    ],
+    "ads_count": 3
   }
 ]
