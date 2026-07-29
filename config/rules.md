@@ -38,6 +38,11 @@
 ### Біла Церква (1 клуб)
 035 — ТРЦ Гермес (Ярослава Мудрого, 40)
 
+### Житомир (1 клуб) — ПРЕСЕЙЛ
+041 — ТРЦ Ярмарок
+Посилання: https://apollo.online/clubs/apollo-next-041-yarmarok/
+⚠️ Відкриття 13.08.2026. Режим presale — Meta несе до 90% продажів.
+
 ### Вінниця (1 клуб)
 033 — ТЦ MagiGrand (Келецька, 78в)
 Посилання: https://apollo.online/clubs/apollo-next-033-tcz-magigrand/
@@ -58,9 +63,10 @@
 
 ### Місто з 1 клубом → пряме посилання на клуб
 Івано-Франківськ: https://apollo.online/clubs/apollo-next-039/
-Біла Церква:      https://apollo.online/clubs/apollo-next-035-trcz-hermес/
+Біла Церква:      https://apollo.online/clubs/apollo-next-035-tcz-germes/
 Вінниця:          https://apollo.online/clubs/apollo-next-033-tcz-magigrand/
 Бориспіль:        https://apollo.online/clubs/apollo-next-027-czum-kyyivskyj-shlyah/
+Житомир:          https://apollo.online/clubs/apollo-next-041-yarmarok/
 
 ### Кампанія по конкретному клубу → пряме посилання на клуб
 Незалежно від міста — завжди пряме посилання на конкретний клуб
