@@ -636,5 +636,53 @@
       }
     ],
     "ads_count": 3
+  },
+  {
+    "date": "2026-07-30",
+    "campaign_name": "AI_Apollo_sales_allclubs_499_0108",
+    "campaign_id": "120249912587110193",
+    "adsets": [
+      {
+        "name": "broad_18-55_inst_treads",
+        "id": "120249912588410193"
+      },
+      {
+        "name": "advantage_18-65",
+        "id": "120249912599980193"
+      },
+      {
+        "name": "rem_30d_18-55_inst_treads",
+        "id": "120249912610410193"
+      },
+      {
+        "name": "cancelled+engagement_365_inst",
+        "id": "120249912621850193"
+      }
+    ],
+    "ads_count": 12
+  },
+  {
+    "date": "2026-07-30",
+    "campaign_name": "AI_Apollo_sales_allclubs_399_0108",
+    "campaign_id": "120249912660240193",
+    "adsets": [
+      {
+        "name": "broad_18-55_inst_treads",
+        "id": "120249912661190193"
+      },
+      {
+        "name": "advantage_18-65",
+        "id": "120249912670980193"
+      },
+      {
+        "name": "rem_30d_18-55_inst_treads",
+        "id": "120249912678370193"
+      },
+      {
+        "name": "cancelled+engagement_365_inst",
+        "id": "120249912693560193"
+      }
+    ],
+    "ads_count": 12
   }
 ]
