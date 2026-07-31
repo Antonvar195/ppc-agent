@@ -18,7 +18,6 @@ const PAGE_ID = '107996248132865';
 const IG_ID = '17841447539432480';
 const START_TIME = '2026-08-01T00:01:00+0300';
 const NEW_CAMP_NAME = 'AI_Apollo_reach_399_0108';
-const LINK = 'https://apollo.online/clubs/';
 const CTA = 'LEARN_MORE';
 const URL_TAGS = 'utm_source=facebook&utm_medium=reach&utm_campaign={{campaign.name}}&utm_content={{ad.name}}&utm_term={{adset.name}}&placement={{placement}}';
 const DL = path.join(process.env.HOME, 'Downloads');
@@ -36,11 +35,11 @@ const VIDEOS = [
     headline: 'Сьогодні — сюди',
     body: 'Сьогодні хочеться заліза. Завтра — кардіо. Післязавтра — тиші й розтяжки.\n\nВ APOLLO NEXT є зона під будь-який настрій: вільні ваги, кардіо, груповий зал, функціонал, простір для розтяжки. Обирай щодня заново.\n#титвоямета' + OFFER },
 ];
+// per-city link: Odessa = filtered city listing (2 clubs), single-club cities = club page
 const CITIES = [
-  { name: 'Odessa', key: '2384095', budget: 1000 },
-  { name: 'Bila Tserkva', key: '2363654', budget: 500 },
-  { name: 'Boryspil', key: '2364576', budget: 500 },
-  { name: 'Ivano-Frankivsk', key: '2371245', budget: 500 },
+  { name: 'Odessa', key: '2384095', budget: 1000, link: 'https://apollo.online/clubs/odesa/' },
+  { name: 'Bila Tserkva', key: '2363654', budget: 500, link: 'https://apollo.online/clubs/apollo-next-035/' },
+  { name: 'Ivano-Frankivsk', key: '2371245', budget: 500, link: 'https://apollo.online/clubs/apollo-next-039/' },
 ];
 
 async function uploadVideo(buffer, name) {
@@ -77,9 +76,9 @@ const VRULES = [
   { customization_spec: { publisher_platforms: ['facebook', 'instagram'], facebook_positions: ['story', 'facebook_reels'], instagram_positions: ['story', 'reels'] }, video_label: { name: 'st_vid' }, priority: 1 },
   { customization_spec: { publisher_platforms: ['facebook', 'instagram'], facebook_positions: ['feed'], instagram_positions: ['stream', 'explore', 'explore_home', 'profile_feed'] }, video_label: { name: 'sq_vid' }, priority: 2 },
 ];
-function creativePayload(v, name) {
+function creativePayload(v, name, link) {
   const afs = {
-    bodies: [{ text: v.body }], titles: [{ text: v.headline }], link_urls: [{ website_url: LINK }],
+    bodies: [{ text: v.body }], titles: [{ text: v.headline }], link_urls: [{ website_url: link }],
     call_to_action_types: [CTA], ad_formats: ['AUTOMATIC_FORMAT'],
     videos: [
       { video_id: v.feedVid, thumbnail_hash: v.feedThumb, adlabels: [{ name: 'sq_vid' }] },
@@ -136,7 +135,7 @@ async function prepVideo(v) {
 async function test() {
   const v = VIDEOS[2]; // AP03 has square feed
   await prepVideo(v);
-  const cr = await createCreative(creativePayload(v, v.key + '_TEST'));
+  const cr = await createCreative(creativePayload(v, v.key + '_TEST', CITIES[0].link));
   console.log('  creative', cr);
   const camp = await apiPost(`${ACCT}/campaigns`, { name: 'ZZZ_REACH_TEST_DEL', objective: 'OUTCOME_AWARENESS', buying_type: 'AUCTION', special_ad_categories: JSON.stringify([]), is_adset_budget_sharing_enabled: 'false', status: 'PAUSED' });
   try {
@@ -154,8 +153,6 @@ async function test() {
 async function build() {
   console.log(`Building ${NEW_CAMP_NAME} | start ${START_TIME}`);
   for (const v of VIDEOS) await prepVideo(v);
-  const creatives = {};
-  for (const v of VIDEOS) { creatives[v.key] = await createCreative(creativePayload(v, v.key)); console.log(`  creative ${v.key}: ${creatives[v.key]}`); }
   const camp = await apiPost(`${ACCT}/campaigns`, { name: NEW_CAMP_NAME, objective: 'OUTCOME_AWARENESS', buying_type: 'AUCTION', special_ad_categories: JSON.stringify([]), is_adset_budget_sharing_enabled: 'false', status: 'PAUSED' });
   if (camp.error) throw new Error('campaign: ' + camp.error.message);
   console.log('📁 campaign', camp.id);
@@ -163,11 +160,12 @@ async function build() {
   for (const c of CITIES) {
     for (const v of VIDEOS) {
       const name = `${c.name.replace(/[ -]/g, '')}_18-55_${v.key}`;
+      const cr = await createCreative(creativePayload(v, `${v.key}_${c.name.replace(/[ -]/g, '')}`, c.link)); // per-city link
       const asId = await createAdset(camp.id, name, c.budget, c.key);
-      await createAd(asId, v.key, creatives[v.key]);
+      await createAd(asId, v.key, cr);
       log.ads_count++; log.adsets.push({ name, id: asId });
     }
-    console.log(`  📂 ${c.name}: 3 groups (AP01/02/03) @ $${c.budget / 100}/d each`);
+    console.log(`  📂 ${c.name}: 3 groups (AP01/02/03) @ $${c.budget / 100}/d each | link ${c.link}`);
   }
   const histFile = path.join(__dirname, '../history/launches.json');
   let hist = []; try { hist = JSON.parse(fs.readFileSync(histFile, 'utf8')); } catch (e) {}
