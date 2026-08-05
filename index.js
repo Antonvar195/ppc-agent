@@ -65,7 +65,7 @@ async function start() {
 
     setInterval(tick, 15 * 60 * 1000);
     tick();
-    console.log('⚙️  Bridge enabled — опитую секцію «В работу» кожні 15 хв');
+    console.log('⚙️  Bridge enabled — «Предложено» → виробництво, «В работу» → розміщення, кожні 15 хв');
   } else {
     console.log('⏸  Bridge disabled (нема ASANA_TOKEN або BRIDGE_ENABLED=false)');
   }
