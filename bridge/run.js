@@ -11,16 +11,22 @@
  *
  * Что здесь важно и почему:
  *
- * Два прохода, потому что у работы две стадии.
+ * Один вход — «В работу», но карточка проходит его дважды.
  *
- * Производство идёт из «Предложено»: мост делает вариации креативов и
- * кладёт их картинками прямо в карточку, после чего двигает её на апрув.
- * Согласовать креатив, которого никто не видел, нельзя — поэтому материал
- * появляется до решения, а не после.
+ * У креатива два разных согласования, и склеивать их нельзя:
+ *   первое — решение «делаем вариации этого победителя вообще»;
+ *   второе — решение «берём вот эти две картинки, остальные нет».
+ * Первое принимается по цифрам, второе глазами, и между ними обязана
+ * лежать работа. Поэтому:
  *
- * Размещение идёт из «В работу» — и это единственный вход к изменениям
- * в кабинете. Ни одна карточка не исполняется потому, что она «выглядит
- * согласованной»: перенос делает человек, и это его подпись под решением.
+ *   1-й проход через «В работу» → производство. Мост делает вариации,
+ *      кладёт их картинками в карточку и возвращает её на апрув.
+ *   2-й проход через «В работу» → размещение. Мост создаёт объявления
+ *      из того, что осталось во вложениях. Всё на паузе.
+ *
+ * Производство не запускается само по факту предложения аналитика.
+ * Раньше запускалось — и это было неверно: рекомендация не равна
+ * решению, а генерация стоит денег и внимания.
  *
  * Апрув креатива устроен вычитанием: размещается то, что осталось
  * во вложениях. Не понравился вариант — удалите картинку из карточки.
@@ -59,6 +65,24 @@ async function locate() {
     if (!sections[need]) throw new Error(`нет секции «${need}» — прогони asana_setup в ppc-analyst`);
   }
   return { project: project.gid, sections };
+}
+
+/**
+ * Подпись спецификации: та ли это работа, которую предложила система.
+ *
+ * Проверка закрытая: нет ключа — не исполняем; подпись не сошлась —
+ * не исполняем. Блок спецификации лежит в описании карточки, а описание
+ * правится руками, и без подписи мост исполнял бы любое распоряжение,
+ * которое кто-нибудь туда вписал.
+ */
+function verify(spec) {
+  const key = process.env.BRIDGE_SECRET;
+  if (!key) return 'на исполнителе нет BRIDGE_SECRET — проверить происхождение карточки нечем';
+  if (!spec.sig) return 'спецификация без подписи: похоже, блок вписан вручную';
+  const body = { opsVersion: spec.opsVersion, entry: spec.entry ?? null, steps: spec.steps };
+  const mine = crypto.createHmac('sha256', key).update(JSON.stringify(body)).digest('hex').slice(0, 32);
+  if (mine !== spec.sig) return 'подпись не сошлась: спецификацию правили после того, как её собрал аналитик';
+  return null;
 }
 
 const specOf = (notes) => {
@@ -104,25 +128,26 @@ function renderReport(report, fp) {
     L.push('Проверка прошла, ничего не менял.');
   } else if (report.stage === 'production') {
     L.push('Вариации во вложениях карточки. Посмотри и удали те, что не нужны — ' +
-           'разместятся только оставшиеся. Потом двигай в «В работу».');
+           'разместятся только оставшиеся. Потом верни карточку в «В работу»: ' +
+           'вторым проходом они станут объявлениями, на паузе.');
   } else {
     L.push('Исполнено. Всё лежит НА ПАУЗЕ — включаешь ты, вручную.');
   }
   return L.join('\n');
 }
 
-async function pass({ tasks, sections, stage, from, onOk, onFail, dryRun }) {
+async function pass({ tasks, sections, stage, from, onOk, onFail, dryRun, mark = null, skip = null }) {
   const queue = tasks.filter(t => !t.completed &&
     (t.memberships || []).some(m => m.section?.name === from));
 
   const out = [];
   for (const t of queue) {
+    if (skip && skip.has(t.gid)) { out.push({ task: t.name, skipped: 'только что произведено, ждёт просмотра' }); continue; }
     const spec = specOf(t.notes);
 
     if (!spec) {
-      // Производство молчит: в «Предложено» большинство карточек — про
-      // бюджеты и аудитории, и им нечего производить. Ругаться на них
-      // значит завалить доску одинаковыми комментариями.
+      // На производственном проходе молчим: у большинства карточек нечего
+      // производить, и ругаться на каждую значит завалить доску.
       if (stage === 'production') { out.push({ task: t.name, skipped: 'нет спецификации' }); continue; }
       const fp = 'no-spec';
       if (await alreadyTried(t.gid, fp)) { out.push({ task: t.name, skipped: 'уже сообщал' }); continue; }
@@ -135,12 +160,23 @@ async function pass({ tasks, sections, stage, from, onOk, onFail, dryRun }) {
 
     if (!hasStage(spec, stage)) { out.push({ task: t.name, skipped: `нечего делать на стадии ${stage}` }); continue; }
 
+    const bad = verify(spec);
+    if (bad) {
+      const fp = 'unsigned';
+      if (await alreadyTried(t.gid, fp)) { out.push({ task: t.name, skipped: 'про подпись уже сообщал' }); continue; }
+      await A.addComment(t.gid, `${MARK} · ${fp}\nНе исполняю: ${bad}.`);
+      if (!dryRun) await A.moveToSection(sections[BACK], t.gid);
+      out.push({ task: t.name, error: bad });
+      continue;
+    }
+
     const fp = fingerprint(spec, stage);
     if (await alreadyTried(t.gid, fp)) { out.push({ task: t.name, skipped: 'эта спецификация уже бралась' }); continue; }
 
     const report = await execute(spec, { dryRun, stage, taskGid: t.gid });
     await A.addComment(t.gid, renderReport(report, fp));
     if (!dryRun) await A.moveToSection(sections[report.ok ? onOk : onFail], t.gid);
+    if (mark && report.ok) mark.add(t.gid);
     out.push({ task: t.name, stage, ok: report.ok, steps: report.steps.length, error: report.error || null });
   }
   return out;
@@ -151,10 +187,17 @@ async function once({ dryRun = false } = {}) {
   const { project, sections } = await locate();
   const tasks = await A.tasks(project, 'name,notes,completed,memberships.section.name');
 
+  // Производство первым: карточка, которая сейчас произвела материал,
+  // уезжает на апрув и в этом же проходе размещаться не должна — иначе
+  // картинки уйдут в кабинет, минуя ваш просмотр. Список задач прочитан
+  // один раз и о переносе не знает, поэтому помним такие карточки явно.
+  const producedNow = new Set();
   const production = await pass({ tasks, sections, dryRun, stage: 'production',
-                                  from: NEW, onOk: APPROVE, onFail: NEW });
+                                  from: IN, onOk: APPROVE, onFail: BACK,
+                                  mark: producedNow });
   const placement = await pass({ tasks, sections, dryRun, stage: 'placement',
-                                 from: IN, onOk: DONE, onFail: BACK });
+                                 from: IN, onOk: DONE, onFail: BACK,
+                                 skip: producedNow });
 
   return { checked: production.length + placement.length,
            results: [...production, ...placement],
