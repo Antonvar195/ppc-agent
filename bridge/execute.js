@@ -21,6 +21,12 @@
  * 3. Ничего не включается. Проверка стоит в словаре операций, но здесь она
  *    повторяется на итоговом теле запроса. Одна проверка — это отсутствие
  *    проверки: тот, кто добавит операцию в словарь, про инвариант забудет.
+ *
+ * 4. Стадии не смешиваются. Одна карточка может нести и производство
+ *    («сделай вариации»), и размещение («поставь их объявлениями»), но
+ *    исполняются они в разные моменты: производство до вашего апрува,
+ *    размещение после. Шаги чужой стадии не ошибка — они просто ждут
+ *    своего прохода.
  */
 
 require('dotenv').config();
@@ -29,9 +35,9 @@ const ops = require('./ops');
 
 /** Поля, по которым сверяемся и из которых собирается откат. */
 const WATCH = {
-  campaign: ['name', 'status', 'daily_budget', 'lifetime_budget'],
-  adset:    ['name', 'status', 'daily_budget', 'lifetime_budget', 'bid_amount'],
-  ad:       ['name', 'status']
+  campaign: ['name', 'status', 'effective_status', 'daily_budget', 'lifetime_budget'],
+  adset:    ['name', 'status', 'effective_status', 'daily_budget', 'lifetime_budget', 'bid_amount'],
+  ad:       ['name', 'status', 'effective_status']
 };
 
 async function liveState(level, id) {
@@ -45,15 +51,26 @@ async function liveState(level, id) {
  * читал карточку) и поля, которые шаг собирается менять. Расход и статистика
  * меняются постоянно — сверять их бессмысленно.
  */
-function drift(step, snapshotState, live) {
+function drift(step, snapshotState, live, { stage = 'placement' } = {}) {
   const out = [];
   if (!live || !live.id) return [{ field: 'объект', was: 'существовал', now: 'не найден' }];
 
   if (snapshotState?.name && live.name !== snapshotState.name) {
     out.push({ field: 'имя', was: snapshotState.name, now: live.name });
   }
-  if (snapshotState?.status && live.status !== snapshotState.status) {
-    out.push({ field: 'статус', was: snapshotState.status, now: live.status });
+
+  // Статус сверяем и с собственным, и с эффективным. Витрина хранит
+  // эффективный (объявление внутри выключенной кампании — CAMPAIGN_PAUSED),
+  // а API отдаёт собственный (ACTIVE). Сравнивать их напрямую — значит
+  // получать расхождение там, где ничего не менялось.
+  //
+  // На производстве статус вообще не сверяем: исходником вариации служит
+  // отработавший победитель, и то, что его успели выключить, — не помеха.
+  if (stage !== 'production' && snapshotState?.status &&
+      live.status !== snapshotState.status && live.effective_status !== snapshotState.status) {
+    out.push({ field: 'статус', was: snapshotState.status,
+               now: live.status + (live.effective_status && live.effective_status !== live.status
+                                    ? ` (эффективный ${live.effective_status})` : '') });
   }
   for (const key of Object.keys(step.set || {})) {
     if (!(key in (snapshotState || {}))) continue;
@@ -79,12 +96,25 @@ function revertFrom(step, live) {
   return { op: 'update', level: step.level, match: { id: step.match.id }, set };
 }
 
+/** Обработчик по имени из словаря: "creative.makeVariants". */
+function resolveHandler(name) {
+  const [mod, fn] = String(name).split('.');
+  const m = { creative: () => require('./creative') }[mod];
+  if (!m) throw new Error(`обработчик «${name}»: модуля ${mod} нет`);
+  const f = m()[fn];
+  if (typeof f !== 'function') throw new Error(`обработчик «${name}»: функции ${fn} нет`);
+  return f;
+}
+
 /**
  * Исполнить спецификацию.
  * @param spec {opsVersion, steps:[{op,level,match:{id,name},set}], snapshot}
+ * @param opts.stage какую стадию исполняем: production либо placement
+ * @param opts.taskGid карточка — обработчикам нужно, куда класть материалы
  */
-async function run(spec, { dryRun = false } = {}) {
-  const report = { ok: false, dryRun, steps: [], applied: [], reverted: [], stoppedAt: null, error: null };
+async function run(spec, { dryRun = false, stage = 'placement', taskGid = null } = {}) {
+  const report = { ok: false, dryRun, stage, steps: [], applied: [], reverted: [],
+                   skipped: [], stoppedAt: null, error: null };
 
   if (!ops.versionMatches(spec.opsVersion)) {
     report.error = `спецификация собрана под словарь v${spec.opsVersion}, у исполнителя v${ops.VERSION} — не исполняю`;
@@ -108,15 +138,21 @@ async function run(spec, { dryRun = false } = {}) {
   }
 
   const byId = new Map((spec.snapshot?.objects || []).map(o => [String(o.id), o.state]));
+  const ctx = { taskGid, dryRun };
 
   for (const [i, step] of steps.entries()) {
     const entry = { n: i + 1, op: step.op, level: step.level,
                     object: step.match.name || step.match.id, id: step.match.id };
+
+    if ((compiled[i].stage || 'placement') !== stage) {
+      report.skipped.push({ ...entry, why: `стадия ${compiled[i].stage}, сейчас идёт ${stage}` });
+      continue;
+    }
     let live;
     try { live = await liveState(step.level, step.match.id); }
     catch (e) { entry.error = `не прочитал объект: ${e.message}`; report.steps.push(entry); report.stoppedAt = i + 1; break; }
 
-    const d = drift(step, byId.get(String(step.match.id)), live);
+    const d = drift(step, byId.get(String(step.match.id)), live, { stage: compiled[i].stage });
     if (d.length) {
       entry.drift = d;
       entry.error = 'состояние объекта изменилось после сборки спецификации: ' +
@@ -125,16 +161,25 @@ async function run(spec, { dryRun = false } = {}) {
     }
 
     entry.call = compiled[i].call;
-    entry.revert = compiled[i].reversible ? revertFrom(step, live) : null;
-
-    if (dryRun) { entry.ok = true; entry.note = 'проверка без исполнения'; report.steps.push(entry); continue; }
+    // Откат есть только у изменений настроек. Производство откатывать
+    // нечего — лишние картинки в карточке удаляются рукой.
+    entry.revert = (compiled[i].kind === 'api' && compiled[i].reversible) ? revertFrom(step, live) : null;
 
     try {
-      entry.result = await apiPost(compiled[i].call.path, compiled[i].call.params);
+      if (compiled[i].kind === 'handler') {
+        const fn = resolveHandler(compiled[i].handler);
+        entry.result = await fn(compiled[i].call, ctx);
+        entry.note = entry.result?.summary || null;
+        entry.warn = entry.result?.warn || null;
+      } else if (dryRun) {
+        entry.note = 'проверка без исполнения';
+      } else {
+        entry.result = await apiPost(compiled[i].call.path, compiled[i].call.params);
+      }
       entry.ok = true;
-      report.applied.push(entry);
+      if (!dryRun) report.applied.push(entry);
     } catch (e) {
-      entry.error = `Meta отказала: ${e.message}`;
+      entry.error = `${compiled[i].kind === 'handler' ? compiled[i].title : 'Meta'}: ${e.message}`;
       report.steps.push(entry); report.stoppedAt = i + 1; break;
     }
     report.steps.push(entry);

@@ -1,75 +1,247 @@
 {
-  "version": "1",
+  "version": "2",
   "comment": [
     "Словарь операций моста. Единственный источник правды о том, что мост",
-    "умеет делать в кабинете. Добавить операцию — добавить сюда запись,",
-    "код менять не нужно.",
+    "умеет делать, — и на какой стадии воронки он это делает.",
+    "Добавить операцию — добавить сюда запись, код менять не нужно.",
+    "",
+    "stage делит операции на две несмешиваемые группы:",
+    "  production — производство. Ничего в кабинете не меняет, делает материал",
+    "               и кладёт его в карточку на просмотр. Идёт ДО апрува.",
+    "  placement  — размещение. Меняет кабинет. Идёт ПОСЛЕ апрува,",
+    "               из секции «В работу».",
+    "Смешивать нельзя: карточка, которая произвела баннеры и тут же",
+    "разместила их объявлениями, не оставила бы места для «нет, этот убери».",
     "",
     "Аналитик держит копию этого файла и ставит version в спецификацию.",
-    "Если версии разошлись, исполнитель отказывается работать: молча",
-    "исполнить спецификацию, собранную под другой словарь, — худшее,",
-    "что здесь может произойти."
+    "Если версии разошлись, исполнитель отказывается работать."
   ],
-
   "levels": {
-    "campaign": { "edge": "campaigns", "budgetOwner": true },
-    "adset":    { "edge": "adsets",    "budgetOwner": true },
-    "ad":       { "edge": "ads",       "budgetOwner": false }
+    "campaign": {
+      "edge": "campaigns",
+      "budgetOwner": true
+    },
+    "adset": {
+      "edge": "adsets",
+      "budgetOwner": true
+    },
+    "ad": {
+      "edge": "ads",
+      "budgetOwner": false
+    }
   },
-
   "ops": {
     "pause": {
       "title": "поставить на паузу",
-      "levels": ["campaign", "adset", "ad"],
-      "body": { "status": "PAUSED" },
-      "reversible": true
+      "levels": [
+        "campaign",
+        "adset",
+        "ad"
+      ],
+      "body": {
+        "status": "PAUSED"
+      },
+      "reversible": true,
+      "stage": "placement"
     },
-
     "update": {
       "title": "изменить настройки",
-      "levels": ["campaign", "adset", "ad"],
+      "levels": [
+        "campaign",
+        "adset",
+        "ad"
+      ],
       "fields": {
-        "daily_budget":    { "levels": ["campaign", "adset"], "type": "cents", "min": 100 },
-        "lifetime_budget": { "levels": ["campaign", "adset"], "type": "cents", "min": 100 },
-        "bid_amount":      { "levels": ["adset"],             "type": "cents", "min": 1 },
-        "targeting":       { "levels": ["adset"],             "type": "json" },
-        "name":            { "levels": ["campaign", "adset", "ad"], "type": "string" },
-        "end_time":        { "levels": ["campaign", "adset"], "type": "string" },
-        "start_time":      { "levels": ["adset"],             "type": "string" },
-        "status":          { "levels": ["campaign", "adset", "ad"], "type": "enum",
-                             "values": ["PAUSED"] }
+        "daily_budget": {
+          "levels": [
+            "campaign",
+            "adset"
+          ],
+          "type": "cents",
+          "min": 100
+        },
+        "lifetime_budget": {
+          "levels": [
+            "campaign",
+            "adset"
+          ],
+          "type": "cents",
+          "min": 100
+        },
+        "bid_amount": {
+          "levels": [
+            "adset"
+          ],
+          "type": "cents",
+          "min": 1
+        },
+        "targeting": {
+          "levels": [
+            "adset"
+          ],
+          "type": "json"
+        },
+        "name": {
+          "levels": [
+            "campaign",
+            "adset",
+            "ad"
+          ],
+          "type": "string"
+        },
+        "end_time": {
+          "levels": [
+            "campaign",
+            "adset"
+          ],
+          "type": "string"
+        },
+        "start_time": {
+          "levels": [
+            "adset"
+          ],
+          "type": "string"
+        },
+        "status": {
+          "levels": [
+            "campaign",
+            "adset",
+            "ad"
+          ],
+          "type": "enum",
+          "values": [
+            "PAUSED"
+          ]
+        }
       },
-      "reversible": true
+      "reversible": true,
+      "stage": "placement"
     },
-
     "duplicate": {
       "title": "скопировать объект",
-      "levels": ["campaign", "adset", "ad"],
+      "levels": [
+        "campaign",
+        "adset",
+        "ad"
+      ],
       "endpoint": "copies",
       "body": {
         "status_option": "PAUSED",
         "deep_copy": true
       },
       "fields": {
-        "rename_suffix": { "levels": ["campaign", "adset", "ad"], "type": "string" },
-        "parent_id":     { "levels": ["adset", "ad"],             "type": "string" }
+        "rename_suffix": {
+          "levels": [
+            "campaign",
+            "adset",
+            "ad"
+          ],
+          "type": "string"
+        },
+        "parent_id": {
+          "levels": [
+            "adset",
+            "ad"
+          ],
+          "type": "string"
+        }
       },
       "reversible": false,
-      "note": "Копия всегда рождается на паузе. Отката нет — есть удаление, но его мост не делает."
+      "note": "Копия всегда рождается на паузе. Отката нет — есть удаление, но его мост не делает.",
+      "stage": "placement"
+    },
+    "make_variants": {
+      "title": "сделать вариации креатива",
+      "stage": "production",
+      "levels": [
+        "ad"
+      ],
+      "handler": "creative.makeVariants",
+      "fields": {
+        "count": {
+          "levels": [
+            "ad"
+          ],
+          "type": "int",
+          "min": 1,
+          "max": 6
+        },
+        "recipe": {
+          "levels": [
+            "ad"
+          ],
+          "type": "enum",
+          "values": [
+            "palette",
+            "instructed"
+          ]
+        },
+        "instruction": {
+          "levels": [
+            "ad"
+          ],
+          "type": "string",
+          "note": "только для recipe=instructed: что именно поменять в сцене"
+        }
+      },
+      "reversible": true,
+      "note": "Берёт исходник победившего объявления и делает из него вариации. В кабинет не пишет — складывает картинки в карточку."
+    },
+    "add_ad": {
+      "title": "разместить объявление из вариаций",
+      "stage": "placement",
+      "levels": [
+        "adset"
+      ],
+      "handler": "creative.addAd",
+      "fields": {
+        "from_ad": {
+          "levels": [
+            "adset"
+          ],
+          "type": "string"
+        },
+        "name_prefix": {
+          "levels": [
+            "adset"
+          ],
+          "type": "string"
+        }
+      },
+      "reversible": false,
+      "note": "Создаёт объявления из картинок, оставшихся в карточке, копируя тексты и ссылки исходного объявления. Всегда PAUSED. Отката нет — объявление снимается паузой."
     }
   },
-
   "forbidden": {
-    "status_values": ["ACTIVE", "ARCHIVED", "DELETED"],
+    "status_values": [
+      "ACTIVE",
+      "ARCHIVED",
+      "DELETED"
+    ],
     "why": [
       "ACTIVE — включение только руками владельца, это правило контура.",
       "ARCHIVED и DELETED необратимы: восстановить объект из спецификации нельзя,",
       "поэтому и предлагать их мосту нечего."
     ]
   },
-
   "limits": {
     "max_steps_per_card": 12,
     "max_budget_increase_ratio": 2.0
+  },
+  "recipes": {
+    "palette": "Перекраска фона в другой цвет ФИРМЕННОЙ палитры (Sharp). Текст, логотип и вёрстка не трогаются. Бесплатно и безопасно.",
+    "instructed": "Правка сцены по инструкции (FLUX Kontext Max). Умеет менять сцену, но текст на картинке может пострадать — смотреть глазами."
+  },
+  "brand_palette": {
+    "orange": "#FF6424",
+    "blue": "#004FE8",
+    "black": "#000000",
+    "white": "#FFFFFF",
+    "note": [
+      "Цветокоррекция как ось вариации для этого бренда не годится: замер 05.08.2026",
+      "показал, что глобальная тонировка (cool_blue / warm_gold) полностью сносит",
+      "фирменный оранжевый — баннер становится сиреневым или горчичным.",
+      "Поэтому меняем фон только на другой цвет из этого списка."
+    ]
   }
 }

@@ -46,6 +46,13 @@ function coerce(name, spec, value) {
     case 'enum':
       if (!spec.values.includes(value)) return fail(`${name}: «${value}» не входит в ${spec.values.join('/')}`);
       return { ok: true, value };
+    case 'int': {
+      const n = Number(value);
+      if (!Number.isInteger(n)) return fail(`${name}: ожидалось целое число, пришло ${value}`);
+      if (spec.min != null && n < spec.min) return fail(`${name}: ${n} меньше минимума ${spec.min}`);
+      if (spec.max != null && n > spec.max) return fail(`${name}: ${n} больше предела ${spec.max}`);
+      return { ok: true, value: n };
+    }
     case 'string':
       if (typeof value !== 'string' || !value.trim()) return fail(`${name}: ожидалась непустая строка`);
       return { ok: true, value };
@@ -55,8 +62,12 @@ function coerce(name, spec, value) {
 }
 
 /**
- * Шаг → вызов API.
- * Возвращает {ok, call:{path, params}, reversible} либо {ok:false, says}.
+ * Шаг → вызов API либо обработчик.
+ *
+ * Простые операции описываются словарём целиком: путь и тело собираются
+ * отсюда. Сложные — производство вариаций, размещение объявления — словарём
+ * не описываются, у них есть обработчик. Но и они проходят ту же проверку
+ * полей: обработчик получает уже проверенные значения, а не сырой объект.
  */
 function compile(step) {
   const { op, level, match, set = {} } = step || {};
@@ -103,8 +114,17 @@ function compile(step) {
     delete params.rename_suffix;
   }
 
+  const stage = def.stage || 'placement';
+
+  if (def.handler) {
+    return { ok: true, kind: 'handler', handler: def.handler,
+             call: { id: match.id, params }, reversible: !!def.reversible,
+             title: def.title, stage };
+  }
+
   const apiPath = def.endpoint ? `/${match.id}/${def.endpoint}` : `/${match.id}`;
-  return { ok: true, call: { path: apiPath, params }, reversible: !!def.reversible, title: def.title };
+  return { ok: true, kind: 'api', call: { path: apiPath, params },
+           reversible: !!def.reversible, title: def.title, stage };
 }
 
 /** Совпадает ли словарь, под который собрана спецификация, с нашим. */
@@ -112,9 +132,12 @@ function versionMatches(specVersion) {
   return String(specVersion) === String(VERSION);
 }
 
+/** Стадия операции: производство идёт до апрува, размещение — после. */
+const stageOf = (op) => REGISTRY.ops[op]?.stage || 'placement';
+
 const list = () => Object.entries(REGISTRY.ops).map(([op, d]) => ({
-  op, title: d.title, levels: d.levels,
+  op, title: d.title, levels: d.levels, stage: d.stage || 'placement',
   fields: Object.entries(d.fields || {}).map(([f, s]) => ({ field: f, levels: s.levels, type: s.type }))
 }));
 
-module.exports = { compile, list, versionMatches, VERSION, REGISTRY, FORBIDDEN };
+module.exports = { compile, list, stageOf, versionMatches, VERSION, REGISTRY, FORBIDDEN };

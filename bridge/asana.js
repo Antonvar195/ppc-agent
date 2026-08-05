@@ -89,8 +89,49 @@ async function ensureField(spec, projectGid, existing) {
 
 const workspaceFields = () => get(`/workspaces/${WORKSPACE()}/custom_fields?opt_fields=name,resource_subtype,enum_options.name`);
 
+/**
+ * Вложения карточки.
+ *
+ * Через них проходит апрув креативов: мост кладёт вариации в карточку,
+ * человек удаляет ненужные, а размещаются те, что остались. Кастомные поля
+ * для этого не нужны (их и нет на бесплатном тарифе), и главное — удалить
+ * лишнюю картинку понятнее, чем выставить галочку напротив её имени.
+ */
+const attachments = (taskGid) =>
+  get(`/tasks/${taskGid}/attachments?opt_fields=name,download_url,resource_subtype,created_at`);
+
+function attach(taskGid, filename, buffer, contentType = 'image/jpeg') {
+  const https = require('https');
+  const boundary = '----asana' + Buffer.from(filename).toString('hex').slice(0, 16);
+  const head = Buffer.from(
+    `--${boundary}\r\nContent-Disposition: form-data; name="parent"\r\n\r\n${taskGid}\r\n` +
+    `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="${filename}"\r\n` +
+    `Content-Type: ${contentType}\r\n\r\n`);
+  const tail = Buffer.from(`\r\n--${boundary}--\r\n`);
+  const body = Buffer.concat([head, buffer, tail]);
+
+  return new Promise((resolve, reject) => {
+    const req = https.request({
+      hostname: 'app.asana.com', path: '/api/1.0/attachments', method: 'POST',
+      headers: { Authorization: 'Bearer ' + TOKEN(),
+                 'Content-Type': `multipart/form-data; boundary=${boundary}`,
+                 'Content-Length': body.length }
+    }, res => {
+      let d = '';
+      res.on('data', c => d += c);
+      res.on('end', () => {
+        let j; try { j = JSON.parse(d); } catch { return reject(new Error(`Asana вернула не JSON: ${d.slice(0, 200)}`)); }
+        if (j.errors) return reject(new Error('Asana: ' + j.errors.map(e => e.message).join('; ')));
+        resolve(j.data);
+      });
+    });
+    req.on('error', reject);
+    req.write(body); req.end();
+  });
+}
+
 module.exports = {
-  get, post, put, getAll, projects, sections, tasks,
+  get, post, put, getAll, projects, sections, tasks, attachments, attach,
   createProject, createSection, createTask, updateTask, addComment,
   moveToSection, ensureField, workspaceFields,
   WORKSPACE, configured: () => !!TOKEN()
