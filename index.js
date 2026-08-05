@@ -41,6 +41,34 @@ async function start() {
   } else {
     console.log('⏸  Scheduler disabled — no auto stats/alerts (set SCHEDULER_ENABLED=true to re-enable)');
   }
+
+  // Міст із Asana — окремий вимикач.
+  // Розсилку статистики вимкнули свідомо, і виконання карток не має від неї
+  // залежати: це різні речі. BRIDGE_ENABLED=false зупиняє тільки виконання.
+  if (process.env.BRIDGE_ENABLED !== 'false' && process.env.ASANA_TOKEN) {
+    const bridge = require('./bridge/run');
+    const CHAT_ID = parseInt(process.env.TELEGRAM_USER_ID);
+
+    const tick = async () => {
+      try {
+        const r = await bridge.once({});
+        const acted = r.results.filter(x => !x.skipped);
+        if (!acted.length) return;
+        const lines = acted.map(x => `${x.ok ? '✅' : '❌'} ${x.task}${x.error ? `\n   ${x.error}` : ''}`);
+        await bot.sendMessage(CHAT_ID,
+          `⚙️ Міст виконав ${acted.length} картк(и)\n\n${lines.join('\n')}\n\n` +
+          `Усе лежить НА ПАУЗІ. Вмикаєш вручну.`);
+      } catch (e) {
+        console.error('bridge error:', e.message);
+      }
+    };
+
+    setInterval(tick, 15 * 60 * 1000);
+    tick();
+    console.log('⚙️  Bridge enabled — опитую секцію «В работу» кожні 15 хв');
+  } else {
+    console.log('⏸  Bridge disabled (нема ASANA_TOKEN або BRIDGE_ENABLED=false)');
+  }
 }
 
 start().catch(console.error);
