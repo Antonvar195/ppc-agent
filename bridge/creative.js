@@ -58,8 +58,40 @@ const download = (url) => new Promise((ok, bad) => {
   }).on('error', bad);
 });
 
-const PALETTE = require('./ops.json').brand_palette;
+const BRAND = require('./brand.json');
 const hex2rgb = (h) => ({ r: parseInt(h.slice(1, 3), 16), g: parseInt(h.slice(3, 5), 16), b: parseInt(h.slice(5, 7), 16) });
+
+/** Относительная яркость по WCAG. */
+function luminance({ r, g, b }) {
+  const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+  return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+}
+
+/** Контраст цвета с белым текстом. */
+const contrastWithWhite = (hex) => 1.05 / (luminance(hex2rgb(hex)) + 0.05);
+
+/**
+ * Фоны, доступные для вариации данного исходника.
+ *
+ * Перекраска трогает только фон — текст, логотип и вёрстка остаются как были.
+ * Значит новый фон обязан держать белый текст: светлый песочный #F5F5F0 или
+ * янтарь #FFB300 из системы формально брендовые, но белые буквы на них
+ * исчезают. Порог 3:1 — норма для крупного текста, а на баннере он крупный.
+ *
+ * Из списка выпадает и цвет самого исходника: перекрасить оранжевый
+ * в оранжевый — не вариация.
+ */
+function backgroundsFor(dominant, { minContrast = 3.0 } = {}) {
+  return BRAND.creative_backgrounds.allowed
+    .map(token => ({ token, hex: BRAND.colors[token] }))
+    .filter(c => c.hex)
+    .map(c => ({ ...c, contrast: contrastWithWhite(c.hex) }))
+    .filter(c => {
+      if (c.contrast < minContrast) return false;
+      const { r, g, b } = hex2rgb(c.hex);
+      return Math.hypot(r - dominant.r, g - dominant.g, b - dominant.b) >= 60;
+    });
+}
 
 /**
  * Перекрасить фон в другой цвет фирменной палитры.
@@ -131,18 +163,16 @@ async function makeVariants({ id, params }, ctx) {
 
   let recipes;
   if (recipe === 'palette') {
-    // Цвет исходника исключаем: перекрасить оранжевый в оранжевый — не вариация.
     const src0 = await download(src.images[0].url);
     const { dominant } = await sharp(src0).stats();
-    const near = (hex) => {
-      const c = hex2rgb(hex);
-      return Math.hypot(c.r - dominant.r, c.g - dominant.g, c.b - dominant.b) < 60;
-    };
-    recipes = Object.entries(PALETTE)
-      .filter(([k, v]) => typeof v === 'string' && v.startsWith('#') && k !== 'white' && !near(v))
-      .slice(0, count)
-      .map(([k, v]) => ({ label: k, how: `фон → фирменный ${k} (${v})`, kind: 'palette', hex: v }));
-    if (!recipes.length) throw new Error('в палитре не осталось цвета, отличного от исходного');
+    const usable = backgroundsFor(dominant);
+    if (!usable.length) {
+      throw new Error('в дизайн-системе не осталось фона, который отличается от исходного и держит белый текст');
+    }
+    recipes = usable.slice(0, count).map(c => ({
+      label: c.token, kind: 'palette', hex: c.hex,
+      how: `фон → ${c.token} ${c.hex} из дизайн-системы (контраст с белым ${c.contrast.toFixed(1)}:1)`
+    }));
   } else {
     if (!instruction) throw new Error('recipe=instructed требует поля instruction — что именно менять');
     recipes = Array.from({ length: count }, (_, i) =>
@@ -181,6 +211,7 @@ async function makeVariants({ id, params }, ctx) {
     produced: made.length,
     variants: [...new Set(made.map(m => m.variant))],
     from: src.name,
+    palette: BRAND.source.synced,
     warn: recipe === 'instructed'
       ? 'Правка по инструкции может испортить текст на картинке — просмотри глазами'
       : null,
