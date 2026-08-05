@@ -71,6 +71,79 @@ function luminance({ r, g, b }) {
 const contrastWithWhite = (hex) => 1.05 / (luminance(hex2rgb(hex)) + 0.05);
 
 /**
+ * Цвета элементов, лежащих НА перекрашиваемом фоне.
+ *
+ * Нужны, потому что фон — не единственное, что на нём есть. На баннере 399
+ * плашка оранжевая, а цена внутри неё — синяя: два фирменных цвета играют
+ * друг против друга. Перекрасить плашку в синий значит стереть цену,
+ * и проверка «фон против белого текста» этого не увидит.
+ *
+ * Элементом считаем пиксель, который фоном не является, лежит внутри рамки
+ * фона и окружён фоном со всех четырёх сторон. Радиус берём от размера самой
+ * плашки, а не фиксированный: цифры «399» толщиной в сотню пикселей под
+ * радиус в полтора десятка не подходят, и первая версия проверки их не нашла.
+ * Рамка отсекает фотографию, которая к плашке только примыкает.
+ */
+function elementsOnBackground(data, info, from, tolerance) {
+  const { width: W, height: H, channels: ch } = info;
+  const isBg = new Uint8Array(W * H);
+  for (let i = 0, px = 0; i < data.length; i += ch, px++) {
+    const dr = data[i] - from.r, dg = data[i + 1] - from.g, db = data[i + 2] - from.b;
+    isBg[px] = Math.sqrt(dr * dr + dg * dg + db * db) <= tolerance ? 1 : 0;
+  }
+
+  // Рамка фона: за её пределами искать элементы на нём бессмысленно.
+  let x0 = W, y0 = H, x1 = -1, y1 = -1;
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    if (!isBg[y * W + x]) continue;
+    if (x < x0) x0 = x; if (x > x1) x1 = x;
+    if (y < y0) y0 = y; if (y > y1) y1 = y;
+  }
+  if (x1 < 0) return [];
+  const radius = Math.max(20, Math.round(Math.min(x1 - x0, y1 - y0) * 0.5));
+
+  // Расстояние до ближайшего фонового пикселя по четырём направлениям.
+  const big = 1e6;
+  const L = new Int32Array(W * H), R = new Int32Array(W * H),
+        U = new Int32Array(W * H), D = new Int32Array(W * H);
+  for (let y = 0; y < H; y++) {
+    let d = big;
+    for (let x = 0; x < W; x++) { const p = y * W + x; d = isBg[p] ? 0 : d + 1; L[p] = d; }
+    d = big;
+    for (let x = W - 1; x >= 0; x--) { const p = y * W + x; d = isBg[p] ? 0 : d + 1; R[p] = d; }
+  }
+  for (let x = 0; x < W; x++) {
+    let d = big;
+    for (let y = 0; y < H; y++) { const p = y * W + x; d = isBg[p] ? 0 : d + 1; U[p] = d; }
+    d = big;
+    for (let y = H - 1; y >= 0; y--) { const p = y * W + x; d = isBg[p] ? 0 : d + 1; D[p] = d; }
+  }
+
+  const bins = new Map();
+  for (let px = 0; px < W * H; px++) {
+    if (isBg[px]) continue;
+    const x = px % W, y = (px / W) | 0;
+    if (x < x0 || x > x1 || y < y0 || y > y1) continue;
+    if (L[px] > radius || R[px] > radius || U[px] > radius || D[px] > radius) continue;
+    const i = px * ch;
+    const key = ((data[i] >> 4) << 8) | ((data[i + 1] >> 4) << 4) | (data[i + 2] >> 4);
+    const b = bins.get(key) || { n: 0, r: 0, g: 0, b: 0 };
+    b.n++; b.r += data[i]; b.g += data[i + 1]; b.b += data[i + 2];
+    bins.set(key, b);
+  }
+
+  const floor = Math.max(200, Math.round(W * H * 0.0004));   // мелкий шум по краям букв отбрасываем
+  return [...bins.values()].filter(b => b.n >= floor)
+    .map(b => ({ n: b.n, r: Math.round(b.r / b.n), g: Math.round(b.g / b.n), b: Math.round(b.b / b.n) }))
+    .sort((a, z) => z.n - a.n).slice(0, 8);
+}
+
+const contrast = (c1, c2) => {
+  const a = luminance(c1), b = luminance(c2);
+  return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+};
+
+/**
  * Фоны, доступные для вариации данного исходника.
  *
  * Перекраска трогает только фон — текст, логотип и вёрстка остаются как были.
@@ -81,16 +154,30 @@ const contrastWithWhite = (hex) => 1.05 / (luminance(hex2rgb(hex)) + 0.05);
  * Из списка выпадает и цвет самого исходника: перекрасить оранжевый
  * в оранжевый — не вариация.
  */
-function backgroundsFor(dominant, { minContrast = 3.0 } = {}) {
-  return BRAND.creative_backgrounds.allowed
-    .map(token => ({ token, hex: BRAND.colors[token] }))
-    .filter(c => c.hex)
-    .map(c => ({ ...c, contrast: contrastWithWhite(c.hex) }))
-    .filter(c => {
-      if (c.contrast < minContrast) return false;
-      const { r, g, b } = hex2rgb(c.hex);
-      return Math.hypot(r - dominant.r, g - dominant.g, b - dominant.b) >= 60;
-    });
+function backgroundsFor(from, elements = [], { minContrast = 3.0, minElement = 2.5 } = {}) {
+  const out = [];
+  for (const token of BRAND.creative_backgrounds.allowed) {
+    const hex = BRAND.colors[token];
+    if (!hex) continue;
+    const rgb = hex2rgb(hex);
+
+    if (Math.hypot(rgb.r - from.r, rgb.g - from.g, rgb.b - from.b) < 60) {
+      out.push({ token, hex, rejected: 'это цвет исходника' }); continue;
+    }
+    const white = contrastWithWhite(hex);
+    if (white < minContrast) {
+      out.push({ token, hex, rejected: `белый текст даст контраст ${white.toFixed(1)}:1` }); continue;
+    }
+    // Элементы на фоне не перекрашиваются — значит новый фон обязан их держать.
+    const worst = elements.map(e => ({ e, c: contrast(rgb, e) })).sort((a, b) => a.c - b.c)[0];
+    if (worst && worst.c < minElement) {
+      out.push({ token, hex,
+        rejected: `элемент rgb(${worst.e.r},${worst.e.g},${worst.e.b}) на нём пропадёт — контраст ${worst.c.toFixed(1)}:1` });
+      continue;
+    }
+    out.push({ token, hex, contrast: white, worstElement: worst ? +worst.c.toFixed(2) : null });
+  }
+  return out;
 }
 
 /**
@@ -105,22 +192,112 @@ function backgroundsFor(dominant, { minContrast = 3.0 } = {}) {
  * градиенты и края букв остаются на месте. Белый текст, логотип и карта
  * не трогаются — они от доминанты далеко.
  */
-async function repaint(buffer, targetHex, tolerance = 90) {
+async function repaint(buffer, targetHex, fromRgb, tolerance = 90, minShare = 0.01) {
   const img = sharp(buffer);
-  const { dominant } = await img.stats();
   const { data, info } = await img.raw().toBuffer({ resolveWithObject: true });
   const t = hex2rgb(targetHex);
-  const ch = info.channels;
+  const { width: W, height: H, channels: ch } = info;
+  const total = W * H;
 
-  for (let i = 0; i < data.length; i += ch) {
-    const dr = data[i] - dominant.r, dg = data[i + 1] - dominant.g, db = data[i + 2] - dominant.b;
-    if (Math.sqrt(dr * dr + dg * dg + db * db) > tolerance) continue;
+  const mask = new Uint8Array(total);
+  for (let i = 0, px = 0; i < data.length; i += ch, px++) {
+    const dr = data[i] - fromRgb.r, dg = data[i + 1] - fromRgb.g, db = data[i + 2] - fromRgb.b;
+    mask[px] = dr * dr + dg * dg + db * db <= tolerance * tolerance ? 1 : 0;
+  }
+
+  // Перекрашиваем плашку, а не все пиксели её цвета.
+  //
+  // Фирменный оранжевый встречается и в кадре: наклейки на тренажёрах,
+  // лопасти вентиляторов. Если красить всё подряд, по баннеру рассыпаются
+  // синие пятна. Поэтому берём крупные связные области.
+  //
+  // Но одного размера мало: внутренности букв — «О», «9», «Є» — это тоже
+  // отдельные мелкие области того же цвета, и по размеру они отсеиваются
+  // вместе с наклейками. Тогда на перекрашенной плашке остаются оранжевые
+  // дырки в буквах. Поэтому мелкие области берём тогда, когда они лежат
+  // внутри крупной: внутри плашки это дырки букв, снаружи — кадр.
+  const stack = new Int32Array(total);
+  const seen = new Uint8Array(total);
+  const floor = Math.round(total * minShare);
+  const big = [], small = [];
+
+  for (let start = 0; start < total; start++) {
+    if (!mask[start] || seen[start]) continue;
+    let sp = 0;
+    const members = [];
+    let x0 = W, y0 = H, x1 = -1, y1 = -1;
+    stack[sp++] = start; seen[start] = 1;
+    while (sp) {
+      const p = stack[--sp];
+      members.push(p);
+      const x = p % W, y = (p / W) | 0;
+      if (x < x0) x0 = x; if (x > x1) x1 = x;
+      if (y < y0) y0 = y; if (y > y1) y1 = y;
+      if (x > 0     && mask[p - 1] && !seen[p - 1]) { seen[p - 1] = 1; stack[sp++] = p - 1; }
+      if (x < W - 1 && mask[p + 1] && !seen[p + 1]) { seen[p + 1] = 1; stack[sp++] = p + 1; }
+      if (y > 0     && mask[p - W] && !seen[p - W]) { seen[p - W] = 1; stack[sp++] = p - W; }
+      if (y < H - 1 && mask[p + W] && !seen[p + W]) { seen[p + W] = 1; stack[sp++] = p + W; }
+    }
+    (members.length >= floor ? big : small).push({ members, x0, y0, x1, y1 });
+  }
+
+  const keep = new Uint8Array(total);
+  for (const c of big) for (const p of c.members) keep[p] = 1;
+  for (const c of small) {
+    const inside = big.some(b => c.x0 >= b.x0 && c.x1 <= b.x1 && c.y0 >= b.y0 && c.y1 <= b.y1);
+    if (inside) for (const p of c.members) keep[p] = 1;
+  }
+
+  for (let px = 0; px < total; px++) {
+    if (!keep[px]) continue;
+    const i = px * ch;
+    const dr = data[i] - fromRgb.r, dg = data[i + 1] - fromRgb.g, db = data[i + 2] - fromRgb.b;
     data[i]     = Math.max(0, Math.min(255, t.r + dr));
     data[i + 1] = Math.max(0, Math.min(255, t.g + dg));
     data[i + 2] = Math.max(0, Math.min(255, t.b + db));
   }
-  return sharp(data, { raw: { width: info.width, height: info.height, channels: ch } })
-    .jpeg({ quality: 92 }).toBuffer();
+  return sharp(data, { raw: { width: W, height: H, channels: ch } }).jpeg({ quality: 92 }).toBuffer();
+}
+
+/**
+ * Фирменная плашка на изображении: какой цвет системы на нём лежит
+ * и какую долю занимает.
+ *
+ * Привязываться к доминанте изображения нельзя — это уже стоило испорченной
+ * сторис. У квадрата доминанта оказалась оранжевой плашкой, а у вертикали
+ * того же объявления — серым фоном спортзала, и перекраска ушла в фотографию:
+ * тренажёры стали синими. Ищем именно фирменный цвет, где бы он ни лежал,
+ * и трогаем только его.
+ *
+ * Искать можно не любой цвет системы, а только яркий и насыщенный. Тёмные
+ * и нейтральные тона — «космический чёрный», песочный, белый — на фотографии
+ * зала присутствуют тысячами пикселей, и поиск по ним снова уводит в кадр.
+ * Плашка же всегда плашка: заливка в полную силу цвета.
+ */
+const isPlaqueColor = ({ r, g, b }) => {
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b);
+  return mx / 255 >= 0.5 && (mx ? (mx - mn) / mx : 0) >= 0.4;
+};
+
+async function brandRegion(buffer, tolerance = 90, minShare = 0.03) {
+  const { data, info } = await sharp(buffer).raw().toBuffer({ resolveWithObject: true });
+  const ch = info.channels;
+  const total = info.width * info.height;
+
+  let best = null;
+  for (const [token, hex] of Object.entries(BRAND.colors)) {
+    if (typeof hex !== 'string' || !hex.startsWith('#')) continue;
+    if (!isPlaqueColor(hex2rgb(hex))) continue;
+    const c = hex2rgb(hex);
+    let n = 0;
+    for (let i = 0; i < data.length; i += ch) {
+      const dr = data[i] - c.r, dg = data[i + 1] - c.g, db = data[i + 2] - c.b;
+      if (dr * dr + dg * dg + db * db <= tolerance * tolerance) n++;
+    }
+    const share = n / total;
+    if (share >= minShare && (!best || share > best.share)) best = { token, hex, rgb: c, share };
+  }
+  return best;
 }
 
 /** Исходник объявления: спецификация, картинки с ярлыками и ссылками. */
@@ -162,12 +339,36 @@ async function makeVariants({ id, params }, ctx) {
   const src = await source(id);
 
   let recipes;
+  let rejected = [];
+  let region = null;
   if (recipe === 'palette') {
-    const src0 = await download(src.images[0].url);
-    const { dominant } = await sharp(src0).stats();
-    const usable = backgroundsFor(dominant);
+    // Плашку ищем один раз и требуем её во ВСЕХ плейсментах: комплект,
+    // где квадрат перекрашен, а вертикаль нет, — это не вариация, а брак.
+    const buffers = [];
+    for (const img of src.images) buffers.push(await download(img.url));
+
+    region = await brandRegion(buffers[0]);
+    if (!region) {
+      throw new Error('на баннере нет области фирменного цвета — перекрашивать нечего; ' +
+                      'такой креатив меняют вёрсткой или съёмкой, не цветом');
+    }
+    for (const [i, b] of buffers.entries()) {
+      const r = await brandRegion(b);
+      if (!r || r.token !== region.token) {
+        throw new Error(`плейсмент ${src.images[i].label}: фирменного цвета ${region.token} на нём нет ` +
+                        `(нашлось: ${r ? r.token : 'ничего'}) — комплект получится разнобойным`);
+      }
+    }
+
+    const { data, info } = await sharp(buffers[0]).raw().toBuffer({ resolveWithObject: true });
+    const elements = elementsOnBackground(data, info, region.rgb, 90);
+
+    const checked = backgroundsFor(region.rgb, elements);
+    const usable = checked.filter(c => !c.rejected);
+    rejected = checked.filter(c => c.rejected);
     if (!usable.length) {
-      throw new Error('в дизайн-системе не осталось фона, который отличается от исходного и держит белый текст');
+      throw new Error('ни один фон дизайн-системы не подходит этому баннеру: ' +
+        rejected.map(r => `${r.token} — ${r.rejected}`).join('; '));
     }
     recipes = usable.slice(0, count).map(c => ({
       label: c.token, kind: 'palette', hex: c.hex,
@@ -179,13 +380,20 @@ async function makeVariants({ id, params }, ctx) {
       ({ label: `flux_${i + 1}`, how: instruction, kind: 'instructed' }));
   }
 
+  // Что не подошло — говорим вслух: молча вернуть две картинки вместо трёх
+  // значит оставить человека гадать, почему их две.
+  const rejectedNote = rejected.length
+    ? rejected.map(r => `${r.token} — ${r.rejected}`).join('; ') : null;
+
   // Сухой прогон не производит: у instructed каждая картинка стоит денег,
   // а смысл проверки — убедиться, что исходник разбирается и рецепт понятен.
   if (ctx.dryRun) {
     return {
       produced: 0, variants: recipes.map(r => r.label), from: src.name, warn: null,
+      rejected: rejectedNote,
       summary: `проверка: сделал бы ${recipes.length} вариаци(й) × ${src.images.length} ` +
-               `плейсмент(ов) из «${src.name}» рецептом «${recipe}»`
+               `плейсмент(ов) из «${src.name}» рецептом «${recipe}»` +
+               (region ? `; перекрашиваю ${region.token} (${(region.share * 100).toFixed(0)}% кадра)` : '')
     };
   }
 
@@ -195,7 +403,7 @@ async function makeVariants({ id, params }, ctx) {
       const original = await download(img.url);
       let out;
       if (r.kind === 'palette') {
-        out = await repaint(original, r.hex);
+        out = await repaint(original, r.hex, region.rgb);
       } else {
         const { generateVariation } = require('../tools/creative_generator');
         const ratio = img.height > img.width ? '9:16' : '1:1';
@@ -212,10 +420,12 @@ async function makeVariants({ id, params }, ctx) {
     variants: [...new Set(made.map(m => m.variant))],
     from: src.name,
     palette: BRAND.source.synced,
+    rejected: rejectedNote,
     warn: recipe === 'instructed'
       ? 'Правка по инструкции может испортить текст на картинке — просмотри глазами'
       : null,
-    summary: `${new Set(made.map(m => m.variant)).size} вариаций × ${src.images.length} плейсмент(ов) из «${src.name}»`
+    summary: `${new Set(made.map(m => m.variant)).size} вариаций × ${src.images.length} плейсмент(ов) из «${src.name}»` +
+             (region ? `; перекрашен ${region.token}` : '')
   };
 }
 
@@ -299,4 +509,4 @@ async function addAd({ id, params }, ctx) {
   };
 }
 
-module.exports = { makeVariants, addAd, source, uploadImage, repaint, PREFIX };
+module.exports = { makeVariants, addAd, source, uploadImage, repaint, brandRegion, PREFIX };

@@ -112,6 +112,7 @@ function renderReport(report, fp) {
     const head = `${s.n}. ${s.op} · ${s.object}`;
     if (s.ok) L.push(`✅ ${head}${s.note ? ` — ${s.note}` : ''}`);
     else L.push(`❌ ${head} — ${s.error}`);
+    if (s.rejected) L.push(`     Не подошло: ${s.rejected}`);
     if (s.warn) L.push(`     ⚠️ ${s.warn}`);
     if (s.drift) for (const d of s.drift) L.push(`     ${d.field}: было ${d.was}, стало ${d.now}`);
   }

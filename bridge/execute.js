@@ -171,6 +171,7 @@ async function run(spec, { dryRun = false, stage = 'placement', taskGid = null }
         entry.result = await fn(compiled[i].call, ctx);
         entry.note = entry.result?.summary || null;
         entry.warn = entry.result?.warn || null;
+        entry.rejected = entry.result?.rejected || null;
       } else if (dryRun) {
         entry.note = 'проверка без исполнения';
       } else {
