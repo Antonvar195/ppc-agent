@@ -84,7 +84,30 @@ async function runDailyDigest() {
 
 let alertInterval  = null;
 let digestInterval = null;
+let bridgeInterval = null;
 let lastDigestDay  = -1;
+
+// ─── МІСТ: картки з Asana ──────────────────────────────────────────────────
+// Опитуємо секцію «В работу». Мовчимо, коли там порожньо, — інакше
+// сповіщення перетворяться на фон, який перестають читати.
+async function runBridge() {
+  let bridge;
+  try { bridge = require('../bridge/run'); } catch { return; }
+  if (!process.env.ASANA_TOKEN) return;
+
+  let r;
+  try { r = await bridge.once({}); }
+  catch (e) { console.error('bridge error:', e.message); return; }
+
+  const acted = r.results.filter(x => !x.skipped);
+  if (!acted.length) return;
+
+  const lines = acted.map(x =>
+    `${x.ok ? '✅' : '❌'} ${x.task}${x.error ? `\n   ${x.error}` : ''}`);
+  await safeSend(
+    `⚙️ Міст виконав ${acted.length} картк(и)\n\n${lines.join('\n')}\n\n` +
+    `Усе лежить НА ПАУЗІ. Вмикаєш вручну.`);
+}
 
 function start() {
   if (alertInterval) return; // вже запущено
@@ -103,10 +126,16 @@ function start() {
     }
   }, 60 * 60 * 1000);
 
-  console.log('📅 Scheduler started: alerts every hour, digest at 9:00');
+  // Міст — частіше за алерти: людина посунула картку і чекає результату,
+  // година очікування зробила б контур непридатним для роботи.
+  bridgeInterval = setInterval(runBridge, 15 * 60 * 1000);
+  runBridge();
+
+  console.log('📅 Scheduler started: alerts every hour, digest at 9:00, bridge every 15 min');
 }
 
 function stop() {
+  if (bridgeInterval) { clearInterval(bridgeInterval); bridgeInterval = null; }
   if (alertInterval)  { clearInterval(alertInterval);  alertInterval  = null; }
   if (digestInterval) { clearInterval(digestInterval); digestInterval = null; }
 }

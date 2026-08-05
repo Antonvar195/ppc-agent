@@ -1,0 +1,75 @@
+{
+  "version": "1",
+  "comment": [
+    "Словарь операций моста. Единственный источник правды о том, что мост",
+    "умеет делать в кабинете. Добавить операцию — добавить сюда запись,",
+    "код менять не нужно.",
+    "",
+    "Аналитик держит копию этого файла и ставит version в спецификацию.",
+    "Если версии разошлись, исполнитель отказывается работать: молча",
+    "исполнить спецификацию, собранную под другой словарь, — худшее,",
+    "что здесь может произойти."
+  ],
+
+  "levels": {
+    "campaign": { "edge": "campaigns", "budgetOwner": true },
+    "adset":    { "edge": "adsets",    "budgetOwner": true },
+    "ad":       { "edge": "ads",       "budgetOwner": false }
+  },
+
+  "ops": {
+    "pause": {
+      "title": "поставить на паузу",
+      "levels": ["campaign", "adset", "ad"],
+      "body": { "status": "PAUSED" },
+      "reversible": true
+    },
+
+    "update": {
+      "title": "изменить настройки",
+      "levels": ["campaign", "adset", "ad"],
+      "fields": {
+        "daily_budget":    { "levels": ["campaign", "adset"], "type": "cents", "min": 100 },
+        "lifetime_budget": { "levels": ["campaign", "adset"], "type": "cents", "min": 100 },
+        "bid_amount":      { "levels": ["adset"],             "type": "cents", "min": 1 },
+        "targeting":       { "levels": ["adset"],             "type": "json" },
+        "name":            { "levels": ["campaign", "adset", "ad"], "type": "string" },
+        "end_time":        { "levels": ["campaign", "adset"], "type": "string" },
+        "start_time":      { "levels": ["adset"],             "type": "string" },
+        "status":          { "levels": ["campaign", "adset", "ad"], "type": "enum",
+                             "values": ["PAUSED"] }
+      },
+      "reversible": true
+    },
+
+    "duplicate": {
+      "title": "скопировать объект",
+      "levels": ["campaign", "adset", "ad"],
+      "endpoint": "copies",
+      "body": {
+        "status_option": "PAUSED",
+        "deep_copy": true
+      },
+      "fields": {
+        "rename_suffix": { "levels": ["campaign", "adset", "ad"], "type": "string" },
+        "parent_id":     { "levels": ["adset", "ad"],             "type": "string" }
+      },
+      "reversible": false,
+      "note": "Копия всегда рождается на паузе. Отката нет — есть удаление, но его мост не делает."
+    }
+  },
+
+  "forbidden": {
+    "status_values": ["ACTIVE", "ARCHIVED", "DELETED"],
+    "why": [
+      "ACTIVE — включение только руками владельца, это правило контура.",
+      "ARCHIVED и DELETED необратимы: восстановить объект из спецификации нельзя,",
+      "поэтому и предлагать их мосту нечего."
+    ]
+  },
+
+  "limits": {
+    "max_steps_per_card": 12,
+    "max_budget_increase_ratio": 2.0
+  }
+}
