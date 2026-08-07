@@ -260,7 +260,7 @@ async function main() {
       ],
       bodies: [{ text: day.body }],
       titles: [{ text: TITLE }],
-      link_urls: [{ website_url: CLUB_URL, display_url: CLUB_URL }],
+      link_urls: [{ website_url: CLUB_URL, display_url: 'apollo.online' }],
       call_to_action_types: ['APPLY_NOW'],
       descriptions: [{ text: '' }],
       ad_formats: ['AUTOMATIC_FORMAT'],
@@ -301,6 +301,7 @@ async function main() {
           instagram_user_id: INSTAGRAM_ACTOR_ID,
           link_data: {
             link: CLUB_URL,
+            caption: 'apollo.online',
             message: day.body,
             name: TITLE,
             image_hash: squareHash,

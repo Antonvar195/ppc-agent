@@ -77,6 +77,26 @@ https://apollo.online/clubs/
 ⚠️ Агент завжди перевіряє кількість клубів у місті
 перед тим як ставити посилання
 
+### ВІДОБРАЖУВАНЕ ПОСИЛАННЯ (display_url)
+⚠️ КРИТИЧНО: в об'явленні під заголовком показується **тільки `apollo.online`**,
+без шляху і без `https://`.
+
+| Поле Meta API | Що ставимо | Приклад |
+|---------------|------------|---------|
+| `website_url` (asset_feed_spec) / `link` (link_data) | повний URL сторінки за правилом вище | `https://apollo.online/clubs/apollo-next-041-yarmarok/` |
+| `display_url` | завжди `apollo.online` | `apollo.online` |
+| `call_to_action.value.link` | повний URL, той самий що `website_url` | `https://apollo.online/clubs/apollo-next-041-yarmarok/` |
+
+Правила:
+- `display_url` ніколи не дублює повний URL — інакше в стрічці видно
+  довгий хвіст `/clubs/apollo-next-041-yarmarok/`, який з'їдає місце
+  і виглядає як технічне посилання
+- Перехід все одно йде на `website_url` — `display_url` впливає
+  тільки на те, що людина бачить
+- UTM в `display_url` не додаються ніколи
+- `display_url` не можна змінити на вже створеному креативі —
+  тільки перестворити креатив і перепідключити об'явлення
+
 ---
 
 ## ГЕО КОДИ В НЕЙМІНГУ

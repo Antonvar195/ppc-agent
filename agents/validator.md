@@ -52,6 +52,9 @@
 - 2+ клуби → сторінка фільтра міста
 - всі міста → apollo.online/clubs/
 
+Відображуване посилання (`display_url`) — завжди `apollo.online`,
+незалежно від того, куди веде повний URL. Див. rules.md → ПРАВИЛО ПОСИЛАНЬ.
+
 ### Крок 6 — Перевірка посилань
 → виклич link_checker
 Якщо ❌ → зупинись, повідом користувача
@@ -88,6 +91,7 @@
       "headline": "заголовок з ТЗ",
       "description": "опис з ТЗ (якщо є)",
       "url": "https://apollo.online/clubs/",
+      "display_url": "apollo.online",
       "utm": "..."
     }]
   }]
@@ -108,6 +112,7 @@
   Оптимізація: REACH
   Бюджет: 500 грн/день
   Посилання: https://apollo.online/clubs/
+  Відображається: apollo.online
   Піксель: 393751978682816 | Подія: PageView
   UTM: utm_source=facebook&utm_medium=reach...
 

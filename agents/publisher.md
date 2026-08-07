@@ -28,6 +28,7 @@ JSON структура від validator після явного апруву ("
         {
           "name": "0204_video1",
           "url": "https://apollo.online/clubs/",
+          "display_url": "apollo.online",
           "text": "Apollo Next — фітнес для всіх",
           "headline": "Перше тренування безкоштовно",
           "utm": "utm_source=facebook&utm_medium=reach&utm_campaign={{campaign.name}}&utm_content=0204_video1&utm_term=All_18-35_inst&placement={{placement}}"

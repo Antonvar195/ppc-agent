@@ -148,7 +148,8 @@ async function buildSpecForGroup(files, adText, adHeadline, destinationUrl) {
   const spec = {
     bodies: [{ text: adText }],
     titles: [{ text: adHeadline }],
-    link_urls: [{ website_url: destinationUrl }],
+    // display_url завжди apollo.online — rules.md → ПРАВИЛО ПОСИЛАНЬ
+    link_urls: [{ website_url: destinationUrl, display_url: 'apollo.online' }],
     call_to_action_types: ['LEARN_MORE'],
     ad_formats: ['SINGLE_IMAGE']
   };
@@ -291,7 +292,7 @@ async function createAdWithAssets(adsetId, adName, assetFeedSpec, pageId, urlTag
     if (!media) throw new Error('Немає медіа для fallback');
 
     const objectStorySpec = feedImg
-      ? { page_id: pageId, link_data: { link: cleanUrl, message: adText, name: adTitle, image_hash: feedImg.hash, call_to_action: { type: 'LEARN_MORE', value: { link: rawUrl } } } }
+      ? { page_id: pageId, link_data: { link: cleanUrl, caption: 'apollo.online', message: adText, name: adTitle, image_hash: feedImg.hash, call_to_action: { type: 'LEARN_MORE', value: { link: rawUrl } } } }
       : { page_id: pageId, video_data: { video_id: feedVid.video_id, message: adText, title: adTitle, call_to_action: { type: 'LEARN_MORE', value: { link: rawUrl } } } };
 
     const fallbackCreative = await apiPost(`${AD_ACCOUNT_ID}/adcreatives`, {

@@ -192,6 +192,8 @@ async function createAd(adsetId, params, campaignId = null, adsetTemplate = null
       page_id: params.page_id,
       link_data: {
         link: params.url,
+        // відображуване посилання завжди apollo.online — rules.md → ПРАВИЛО ПОСИЛАНЬ
+        caption: params.display_url || 'apollo.online',
         message: params.text || 'Apollo Next',
         name: params.headline || 'Apollo Next',
         image_hash: imageHash
