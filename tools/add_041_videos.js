@@ -10,10 +10,15 @@
 // Загальний бюджет кампанії лишається $140/день, перерозподіляється на 6 груп:
 //   local $80 → 27/27/26, advantage $60 → 20/20/20.
 //
-// Все нове PAUSED. Usage: node tools/add_041_videos.js plan | upload | build | budget | verify
+// Все нове PAUSED. Usage: node tools/add_041_videos.js plan | upload | build | budget | verify | replace
+//
+// replace — коли перезняли ролики: перезаливає ті файли, у яких змінився md5,
+// збирає нові креативи і переводить на них ті самі 4 оголошення (креатив у Meta
+// незмінний, відредагувати asset_feed_spec наявного не можна).
 const fs = require('fs');
 const path = require('path');
 const https = require('https');
+const crypto = require('crypto');
 const { apiGet: rawGet, apiPost: rawPost } = require('./meta_api');
 const { uploadVideoBufferToMeta } = require('./creative_builder');
 require('dotenv').config({ path: path.join(__dirname, '../.env') });
@@ -202,17 +207,27 @@ function plan() {
 async function upload() {
   const man = readManifest();
   const files = CONCEPTS.flatMap(c => [c.h, c.v]);
+  let changed = 0;
   for (const f of files) {
-    if (man[f] && man[f].video_id) { console.log(`⏭  ${f} вже залито: ${man[f].video_id}`); continue; }
     const p = path.join(DOWNLOADS, f);
     if (!fs.existsSync(p)) throw new Error('нема файлу: ' + p);
     const buf = fs.readFileSync(p);
+    const md5 = crypto.createHash('md5').update(buf).digest('hex');
+    const prev = man[f];
+    if (prev && prev.video_id && prev.md5 === md5) { console.log(`⏭  ${f} без змін: ${prev.video_id}`); continue; }
+    if (prev && prev.video_id) {
+      console.log(`♻️  ${f} — файл змінився, перезаливаю (старий video_id ${prev.video_id})`);
+      man._replaced = man._replaced || [];
+      man._replaced.push({ file: f, ...prev });
+    }
     console.log(`⬆️  ${f} (${Math.round(buf.length / 1024 / 1024)} MB)...`);
     const id = await retry(() => uploadVideoBufferToMeta(buf, f), `upload ${f}`);
-    man[f] = { video_id: id };
+    man[f] = { video_id: id, md5 };
     writeManifest(man);
+    changed++;
     console.log(`    video_id: ${id}`);
   }
+  man._changed = changed;
   for (const f of files) {
     await waitVideoReady(man[f].video_id, f);
     if (!man[f].thumb_hash) {
@@ -225,16 +240,14 @@ async function upload() {
   return man;
 }
 
-async function build() {
-  const man = await upload();
-
-  // креативи — по одному на концепт, переиспользуються в обох групах
+// креативи — по одному на концепт, переиспользуються в обох групах
+async function makeCreatives(man, suffix = '') {
   const creativeIds = {};
   for (const c of CONCEPTS) {
     let created = null, lastErr = null;
     for (const variant of RULE_VARIANTS) {
       const r = await apiPost(`${ACCT}/adcreatives`, {
-        name: `1308_${c.key}_creative`,
+        name: `1308_${c.key}_creative${suffix}`,
         object_story_spec: JSON.stringify({ page_id: PAGE_ID, instagram_user_id: IG_ID }),
         asset_feed_spec: JSON.stringify(creativeSpec(c, man, variant.rules)),
         url_tags: URL_TAGS
@@ -246,6 +259,12 @@ async function build() {
     if (!created) throw new Error(`creative 1308_${c.key}: ${errMsg(lastErr)}`);
     creativeIds[c.key] = created.id;
   }
+  return creativeIds;
+}
+
+async function build() {
+  const man = await upload();
+  const creativeIds = await makeCreatives(man);
 
   const entry = { date: '2026-08-12', campaign_name: 'AI_Apollo_sales_ZHY_041_1308', campaign_id: CAMPAIGN_ID, adsets: [], ads_count: 0 };
 
@@ -290,6 +309,56 @@ async function build() {
   console.log('   Далі: node tools/add_041_videos.js budget');
 }
 
+// Перезняли ролики → нові video_id → нові креативи → ті самі оголошення.
+async function replace() {
+  const man = await upload();
+  if (!man._changed) { console.log('\n⏹  Жоден файл не змінився — нема що замінювати.'); return; }
+
+  // знаходимо живі оголошення в наших двох групах
+  const targets = [];
+  for (const a of NEW_ADSETS) {
+    const sets = await apiGet(`${CAMPAIGN_ID}/adsets`, { fields: 'id,name', limit: '50' });
+    if (sets.error) throw new Error(errMsg(sets.error));
+    const set = (sets.data || []).find(s => s.name === a.name);
+    if (!set) throw new Error(`не знайшов групу ${a.name} — спершу build`);
+    const ads = await apiGet(`${set.id}/ads`, { fields: 'id,name,status,creative{id}', limit: '50' });
+    if (ads.error) throw new Error(errMsg(ads.error));
+    for (const c of CONCEPTS) {
+      const ad = (ads.data || []).find(x => x.name === `1308_${c.key}`);
+      if (!ad) throw new Error(`не знайшов оголошення 1308_${c.key} у ${a.name}`);
+      targets.push({ adset: a.name, ad, concept: c });
+    }
+  }
+
+  const stamp = new Date().toISOString().slice(0, 16).replace('T', ' ');
+  console.log(`\n🎨 Нові креативи (${stamp}):`);
+  const creativeIds = await makeCreatives(man, '_v2');
+
+  console.log('\n🔁 Переводжу оголошення на нові креативи:');
+  for (const t of targets) {
+    const r = await apiPost(t.ad.id, { creative: JSON.stringify({ creative_id: creativeIds[t.concept.key] }) });
+    if (r.error) throw new Error(`ad ${t.ad.name} у ${t.adset}: ${errMsg(r.error)}`);
+    console.log(`   ✅ ${t.adset} / ${t.ad.name} — ${t.ad.creative.id} → ${creativeIds[t.concept.key]}  [${t.ad.status}]`);
+  }
+
+  // Контрольна звірка. УВАГА: у asset_feed_spec Meta повертає СВОЇ video_id —
+  // при створенні креатива вона робить власну копію ролика, тому порівнювати
+  // їх із залитими в акаунт немає сенсу. Звіряємо креатив і thumbnail_hash
+  // (їх ми задаємо самі й вони унікальні для кожного залитого файлу).
+  console.log('\n🔍 Звірка:');
+  for (const t of targets) {
+    const r = await apiGet(t.ad.id, { fields: 'name,creative{id,asset_feed_spec}' });
+    const cr = r.creative || {};
+    const vids = (cr.asset_feed_spec || {}).videos || [];
+    const got = vids.map(v => v.thumbnail_hash).sort();
+    const want = [man[t.concept.h].thumb_hash, man[t.concept.v].thumb_hash].sort();
+    const ok = cr.id === creativeIds[t.concept.key] && JSON.stringify(got) === JSON.stringify(want);
+    console.log(`   ${ok ? '✅' : '❌'} ${t.adset} / ${t.ad.name} — creative ${cr.id}, копії Meta ${vids.map(v => v.video_id).join(', ')}`);
+    if (!ok) throw new Error(`у ${t.adset}/${t.ad.name} стоїть не той креатив`);
+  }
+  console.log('\n✅ Заміна завершена. Старі креативи лишились в акаунті, але на них ніхто не посилається.');
+}
+
 async function budget() {
   console.log('\n💰 Перерозподіл бюджету діючих груп...\n');
   for (const r of REBALANCE) {
@@ -322,5 +391,6 @@ const cmd = process.argv[2];
   else if (cmd === 'build') await build();
   else if (cmd === 'budget') await budget();
   else if (cmd === 'verify') await verify();
-  else console.log('cmd: plan | upload | build | budget | verify');
+  else if (cmd === 'replace') await replace();
+  else console.log('cmd: plan | upload | build | budget | verify | replace');
 })().catch(e => { console.error('❌', e.message); process.exit(1); });

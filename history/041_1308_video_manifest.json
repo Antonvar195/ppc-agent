@@ -1,18 +1,45 @@
 {
   "ApolloNext_041_1920_1080_15c_01_open.mp4": {
-    "video_id": "1761412624881951",
-    "thumb_hash": "c2550b0e408c602fe7fc51327e5e134e"
+    "video_id": "1468558231698826",
+    "md5": "5486520a3dcbb9c8975997aa07b68043",
+    "thumb_hash": "0ad26c7b00acd03a4ef824236505c26f"
   },
   "ApolloNext_041_1080_1920_15c_02_open.mp4": {
-    "video_id": "2129980971252291",
+    "video_id": "1347092664245837",
+    "md5": "52d8e467e2271cc780a655fc77017d8d",
     "thumb_hash": "156f079687964d9fe5b5b4aefd4bb306"
   },
   "ApolloNext_041_1920_1080_12c_03_open.mp4": {
-    "video_id": "28149363734715479",
-    "thumb_hash": "bfcc288fa6f3ef9791ae257ef52a8de6"
+    "video_id": "1455805039707102",
+    "md5": "0277b638638790982eb1c3fd7cf8f9fc",
+    "thumb_hash": "76d247a4489713519dcd878dc4640aec"
   },
   "ApolloNext_041_1920_1080_12c_04_open.mp4": {
-    "video_id": "1037629672355784",
-    "thumb_hash": "fd1632d47d2aa0082244bd7555321fb8"
-  }
+    "video_id": "1370166568406302",
+    "md5": "2293b25d4631921a3e950efca6eda57d",
+    "thumb_hash": "e947b37377f1beedbada73c8d63e1b78"
+  },
+  "_replaced": [
+    {
+      "file": "ApolloNext_041_1920_1080_15c_01_open.mp4",
+      "video_id": "1761412624881951",
+      "thumb_hash": "c2550b0e408c602fe7fc51327e5e134e"
+    },
+    {
+      "file": "ApolloNext_041_1080_1920_15c_02_open.mp4",
+      "video_id": "2129980971252291",
+      "thumb_hash": "156f079687964d9fe5b5b4aefd4bb306"
+    },
+    {
+      "file": "ApolloNext_041_1920_1080_12c_03_open.mp4",
+      "video_id": "28149363734715479",
+      "thumb_hash": "bfcc288fa6f3ef9791ae257ef52a8de6"
+    },
+    {
+      "file": "ApolloNext_041_1920_1080_12c_04_open.mp4",
+      "video_id": "1037629672355784",
+      "thumb_hash": "fd1632d47d2aa0082244bd7555321fb8"
+    }
+  ],
+  "_changed": 4
 }
