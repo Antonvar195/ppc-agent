@@ -10,6 +10,26 @@
 
 ---
 
+## Перед будь-яким записом у Meta
+
+1. **Створювати через `tools/meta_guard.js`** — не голими `apiPost`. У ньому
+   живуть граблі, на які ми вже наступали: `createAdSet` / `createAd` (валідація
+   через `validate_only` + PAUSED за замовчуванням), `promotedObjectFrom`
+   (кастомна конверсія), `normalizeTargeting` (плейсменти).
+2. **`promoted_object` копіювати з живої групи**, не збирати руками —
+   `pixel_rule` звіряється посимвольно (subcode 1885014).
+3. **Звіряти креативи по `thumbnail_hash` / image hash**, НЕ по `video_id` —
+   Meta підміняє id на свої копії (`meta_guard.verifyAd`).
+4. **Не звітувати «готово» без виводу перевірки** — `checkPreviews` +
+   `campaignSummary`. «Запустив» ≠ «працює».
+5. **Перевіряти реальні розміри креативів** (`ffprobe`/`sips`) — назви файлів
+   брешуть.
+
+Повний журнал із симптомами й датами: `docs/LESSONS.md`.
+Нові граблі → запобіжник у `meta_guard.js` + рядок у `LESSONS.md`.
+
+---
+
 ## Критичні правила
 
 1. **PAUSED завжди** — всі об'єкти в Meta API створюються зі статусом PAUSED
