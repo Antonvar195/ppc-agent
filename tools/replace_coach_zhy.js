@@ -1,7 +1,9 @@
 // Replace the 3 creatives in coach_041_zhy (adset 120249580854040193) with
 // updated banners from the same Dropbox folder. Text/headline/link/CTA kept from
 // the current creative. New ads created ACTIVE (group is live), old ads deleted
-// after — seamless swap, no downtime. Warns if a re-uploaded image hash is
+// after — seamless swap, no downtime.
+// guard:allow-live — нові оголошення свідомо ACTIVE: група жива, PAUSED дав би
+// простій між видаленням старих і ввімкненням нових. Warns if a re-uploaded image hash is
 // unchanged (folder not actually updated).
 // Usage: node tools/replace_coach_zhy.js run
 const path = require('path');

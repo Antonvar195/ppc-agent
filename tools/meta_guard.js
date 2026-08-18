@@ -176,15 +176,71 @@ function printSummary(s) {
   console.log(`   ${'разом'.padEnd(42)} $${s.total_usd}/д   (ACTIVE: $${s.active_usd}/д)`);
 }
 
+
+// ── 6. Аудит наявних скриптів ────────────────────────────────────────────────
+// Перевіряє tools/*.js на відомі граблі. Свідомі відступи від правил
+// декларуються маркером у файлі: `// guard:allow-live <причина>`.
+//
+// ВАЖЛИВО: аудит показує ПІДОЗРИ, а не вироки. Перша його версія дала 3 з 3
+// хибних спрацювань і мало не спричинила «виправлення» робочого коду.
+// Кожну знахідку відкривати й читати в контексті перед тим, як чіпати файл.
+function auditScripts() {
+  const fs = require('fs');
+  const dir = __dirname;
+  const out = [];
+
+  for (const f of fs.readdirSync(dir).filter(x => x.endsWith('.js') && x !== 'meta_guard.js')) {
+    const src = fs.readFileSync(path.join(dir, f), 'utf8');
+    if (!/(adsets|adcreatives|\/ads)[`'"]/.test(src)) continue;   // не пише в Meta
+    const uses = /require\(['"]\.\/meta_guard['"]\)/.test(src);
+    const issues = [];
+
+    // Кастомну конверсію зібрали руками? Копія цілого promoted_object — ок.
+    const copiesPO = /promoted_object:\s*JSON\.stringify\(\s*[A-Za-z_$][\w$.]*\.promoted_object\s*\)/.test(src)
+      || /promotedObjectFrom/.test(src);
+    if (/custom_conversion_id/.test(src) && !copiesPO) {
+      if (/i_contains/.test(src)) issues.push(['BUG', 'pixel_rule збирається руками → 1885014']);
+      else if (!/pixel_rule/.test(src)) issues.push(['BUG', 'custom_conversion_id без pixel_rule → 1885014']);
+    }
+
+    // explore_home без explore
+    if (/explore_home/.test(src) && !/['"]explore['"]/.test(src) && !uses) {
+      issues.push(['BUG', 'explore_home без explore → 2490392']);
+    }
+
+    // Створення живих обʼєктів без декларації
+    if (/status: *['"]ACTIVE['"]/.test(src) && !/guard:allow-live/.test(src)) {
+      issues.push(['CHECK', 'створює ACTIVE без маркера guard:allow-live']);
+    }
+
+    if (!/validate_only/.test(src) && !uses) issues.push(['INFO', 'без validate_only перед записом']);
+    if (issues.length) out.push({ file: f, issues });
+  }
+  return out;
+}
+
+function printAudit(rows) {
+  const rank = { BUG: 0, CHECK: 1, INFO: 2 };
+  const flat = rows.flatMap(r => r.issues.map(([sev, msg]) => ({ file: r.file, sev, msg })))
+    .sort((a, b) => rank[a.sev] - rank[b.sev] || a.file.localeCompare(b.file));
+  const icon = { BUG: '🔴', CHECK: '🟡', INFO: '⚪️' };
+  for (const r of flat) console.log(`  ${icon[r.sev]} ${r.sev.padEnd(5)} ${r.file.padEnd(26)} ${r.msg}`);
+  const n = s => flat.filter(x => x.sev === s).length;
+  console.log(`\n  🔴 ${n('BUG')} зламають запис · 🟡 ${n('CHECK')} перевірити вручну · ⚪️ ${n('INFO')} не критично`);
+  console.log('  Кожну знахідку відкрити й прочитати в контексті — аудит дає підозри, не вироки.');
+}
+
 module.exports = {
   normalizeTargeting, promotedObjectFrom, createChecked, createAdSet, createAd,
   verifyAd, checkPreviews, campaignSummary, printSummary, errMsg,
+  auditScripts, printAudit,
 };
 
 // ── самоперевірка ────────────────────────────────────────────────────────────
 if (require.main === module) {
   const [cmd, ref] = process.argv.slice(2);
-  if (cmd !== 'selftest') { console.log('cmd: selftest <reference_adset_id>'); process.exit(0); }
+  if (cmd === 'audit') { printAudit(auditScripts()); process.exit(0); }
+  if (cmd !== 'selftest') { console.log('cmd: selftest <reference_adset_id> | audit'); process.exit(0); }
   (async () => {
     console.log('1) explore_home без explore →');
     const t = normalizeTargeting({
