@@ -46,6 +46,18 @@ function normalizeTargeting(targeting) {
   if (!geo.cities && !geo.regions && !geo.countries && !geo.custom_locations) {
     throw new Error('targeting: у geo_locations нема жодного гео');
   }
+
+  // Радіус навколо МІСТА має бути >= 10 миль (17 км) — менше Meta відхиляє
+  // з subcode 1487110. Для меншого радіуса є custom_locations (lat/lng),
+  // але коло від точки може не покрити все місто.
+  for (const c of geo.cities || []) {
+    if (c.radius === undefined) continue;
+    const km = c.distance_unit === 'mile' ? c.radius * 1.609 : c.radius;
+    if (km < 16.9) {
+      throw new Error(`targeting: радіус ${c.radius} ${c.distance_unit || 'km'} навколо міста замалий — ` +
+        'Meta приймає від 17 км (10 миль) [1487110]. Менше — тільки через custom_locations.');
+    }
+  }
   return t;
 }
 
