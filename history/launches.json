@@ -997,5 +997,20 @@
     ],
     "ads_count": 4,
     "note": "Фітнес Фест 12.09.2026, Київ+10км, 18-55, IG+Threads, $120/д. Ціль — кастомна конверсія TypeformSubmit (28278108171818700), трекінг на боці Typeform. Все PAUSED."
+  },
+  {
+    "date": "2026-08-26",
+    "campaign_name": "AI_Apollo_reach_Kyiv_fest_2608",
+    "campaign_id": "120250522317800193",
+    "adsets": [
+      {
+        "name": "Kyiv_18-55_inst_treads_reach",
+        "id": "120250522318000193",
+        "budget_usd": 40,
+        "ads": 4
+      }
+    ],
+    "ads_count": 4,
+    "note": "Охватна пара до конверсійної кампанії фесту. REACH, $40/д, ліміт частоти 1/2дні, до ранку 12.09. Ті самі банери й аудиторія, utm_medium=reach. Все PAUSED."
   }
 ]
