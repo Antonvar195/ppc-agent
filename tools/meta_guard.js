@@ -210,9 +210,14 @@ function auditScripts() {
     // Кастомну конверсію зібрали руками? Копія цілого promoted_object — ок.
     const copiesPO = /promoted_object:\s*JSON\.stringify\(\s*[A-Za-z_$][\w$.]*\.promoted_object\s*\)/.test(src)
       || /promotedObjectFrom/.test(src);
+    // Ламається САМЕ пара pixel_id + custom_conversion_id без pixel_rule.
+    // Один custom_conversion_id — валідний (так створена fest-кампанія).
     if (/custom_conversion_id/.test(src) && !copiesPO) {
-      if (/i_contains/.test(src)) issues.push(['BUG', 'pixel_rule збирається руками → 1885014']);
-      else if (!/pixel_rule/.test(src)) issues.push(['BUG', 'custom_conversion_id без pixel_rule → 1885014']);
+      if (/i_contains/.test(src) && /pixel_rule/.test(src)) {
+        issues.push(['BUG', 'pixel_rule збирається руками → 1885014']);
+      } else if (/pixel_id/.test(src) && !/pixel_rule/.test(src)) {
+        issues.push(['BUG', 'pixel_id + custom_conversion_id без pixel_rule → 1885014']);
+      }
     }
 
     // explore_home без explore

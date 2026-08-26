@@ -13,8 +13,9 @@
 ### 1885014 — «недійсне сполучення параметрів» у promoted_object
 **Дата:** 17.08.2026 · **Запобіжник:** `meta_guard.promotedObjectFrom()`
 
-Кастомна конверсія приймається лише разом із `pixel_rule`, і Meta звіряє це
-правило з `custom_conversion_id` **посимвольно**. `JSON.stringify` дає
+Ламається САМЕ пара `pixel_id` + `custom_conversion_id` без `pixel_rule`.
+Сам по собі `{custom_conversion_id}` — валідний (так зроблена fest-кампанія).
+А якщо правило передається, Meta звіряє його з конверсією **посимвольно**. `JSON.stringify` дає
 `"https://…"`, а API зберігає `"https:\/\/…"` — після парсингу це той самий
 JSON, але перевірка падає. Пара `pixel_id` + `custom_conversion_id` без правила
 теж дає 1885014.
