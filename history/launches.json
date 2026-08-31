@@ -1012,5 +1012,205 @@
     ],
     "ads_count": 4,
     "note": "Охватна пара до конверсійної кампанії фесту. REACH, $40/д, ліміт частоти 1/2дні, до ранку 12.09. Ті самі банери й аудиторія, utm_medium=reach. Все PAUSED."
+  },
+  {
+    "date": "2026-08-31",
+    "campaigns": [
+      {
+        "name": "AI_Apollo_reach_1grn_0109",
+        "id": "120250589648930193",
+        "adsets": [
+          {
+            "name": "Kyiv_18-55",
+            "id": "120250589656350193",
+            "budget_usd": 100,
+            "ads": 3,
+            "adList": [
+              {
+                "id": "120250589659500193",
+                "name": "0109_A1",
+                "creativeId": "2500881350324338",
+                "link": "https://apollo.online/clubs/kyyiv/"
+              },
+              {
+                "id": "120250589663050193",
+                "name": "0109_A2",
+                "creativeId": "1109031384814007",
+                "link": "https://apollo.online/clubs/kyyiv/"
+              },
+              {
+                "id": "120250589668360193",
+                "name": "0109_A3",
+                "creativeId": "1978430122827591",
+                "link": "https://apollo.online/clubs/kyyiv/"
+              }
+            ]
+          },
+          {
+            "name": "Vinnytsia_18-55",
+            "id": "120250589668560193",
+            "budget_usd": 20,
+            "ads": 3,
+            "adList": [
+              {
+                "id": "120250589670280193",
+                "name": "0109_A1",
+                "creativeId": "1322157406660668",
+                "link": "https://apollo.online/clubs/apollo-next-033-tcz-magigrand/"
+              },
+              {
+                "id": "120250589674190193",
+                "name": "0109_A2",
+                "creativeId": "1108023064885382",
+                "link": "https://apollo.online/clubs/apollo-next-033-tcz-magigrand/"
+              },
+              {
+                "id": "120250589677650193",
+                "name": "0109_A3",
+                "creativeId": "1053274040678342",
+                "link": "https://apollo.online/clubs/apollo-next-033-tcz-magigrand/"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "AI_Apollo_reach_50off_0109",
+        "id": "120250589677950193",
+        "adsets": [
+          {
+            "name": "Lviv_18-55",
+            "id": "120250589678270193",
+            "budget_usd": 40,
+            "ads": 3,
+            "adList": [
+              {
+                "id": "120250589695210193",
+                "name": "0109_B1",
+                "creativeId": "1453927846593000",
+                "link": "https://apollo.online/clubs/lviv/"
+              },
+              {
+                "id": "120250589698960193",
+                "name": "0109_B2",
+                "creativeId": "1599197511991695",
+                "link": "https://apollo.online/clubs/lviv/"
+              },
+              {
+                "id": "120250589704220193",
+                "name": "0109_B3",
+                "creativeId": "1701337627615554",
+                "link": "https://apollo.online/clubs/lviv/"
+              }
+            ]
+          },
+          {
+            "name": "Odessa_18-55",
+            "id": "120250589704490193",
+            "budget_usd": 35,
+            "ads": 3,
+            "adList": [
+              {
+                "id": "120250589708470193",
+                "name": "0109_B1",
+                "creativeId": "1660770818818483",
+                "link": "https://apollo.online/clubs/odesa/"
+              },
+              {
+                "id": "120250589710820193",
+                "name": "0109_B2",
+                "creativeId": "1472238307996944",
+                "link": "https://apollo.online/clubs/odesa/"
+              },
+              {
+                "id": "120250589714560193",
+                "name": "0109_B3",
+                "creativeId": "1810455240121197",
+                "link": "https://apollo.online/clubs/odesa/"
+              }
+            ]
+          },
+          {
+            "name": "BilaTserkva_18-55",
+            "id": "120250589714820193",
+            "budget_usd": 11,
+            "ads": 3,
+            "adList": [
+              {
+                "id": "120250589718780193",
+                "name": "0109_B1",
+                "creativeId": "1655461886294944",
+                "link": "https://apollo.online/clubs/apollo-next-035/"
+              },
+              {
+                "id": "120250589723600193",
+                "name": "0109_B2",
+                "creativeId": "1593759955421159",
+                "link": "https://apollo.online/clubs/apollo-next-035/"
+              },
+              {
+                "id": "120250589727370193",
+                "name": "0109_B3",
+                "creativeId": "1059327756818676",
+                "link": "https://apollo.online/clubs/apollo-next-035/"
+              }
+            ]
+          },
+          {
+            "name": "IvanoFrankivsk_18-55",
+            "id": "120250589728360193",
+            "budget_usd": 18,
+            "ads": 3,
+            "adList": [
+              {
+                "id": "120250589732960193",
+                "name": "0109_B1",
+                "creativeId": "4502428553355858",
+                "link": "https://apollo.online/clubs/apollo-next-039/"
+              },
+              {
+                "id": "120250589735760193",
+                "name": "0109_B2",
+                "creativeId": "1058537453819380",
+                "link": "https://apollo.online/clubs/apollo-next-039/"
+              },
+              {
+                "id": "120250589740790193",
+                "name": "0109_B3",
+                "creativeId": "3153604424834732",
+                "link": "https://apollo.online/clubs/apollo-next-039/"
+              }
+            ]
+          },
+          {
+            "name": "Zhytomyr_18-55",
+            "id": "120250589741050193",
+            "budget_usd": 15,
+            "ads": 3,
+            "adList": [
+              {
+                "id": "120250589750150193",
+                "name": "0109_B1",
+                "creativeId": "1579609223859910",
+                "link": "https://apollo.online/clubs/apollo-next-041-yarmarok/"
+              },
+              {
+                "id": "120250589755150193",
+                "name": "0109_B2",
+                "creativeId": "1785587669299108",
+                "link": "https://apollo.online/clubs/apollo-next-041-yarmarok/"
+              },
+              {
+                "id": "120250589763410193",
+                "name": "0109_B3",
+                "creativeId": "953716133654719",
+                "link": "https://apollo.online/clubs/apollo-next-041-yarmarok/"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "note": "Вересневі охватні: 1грн (Київ, Вінниця) + -50% (Львів, Одеса, БЦ, ІФ, Житомир). Один город = одна група, бюджети серпневі, Житомир $15 пропорційно аудиторії. IMPRESSIONS, ліміт частоти 2/7дн. Все PAUSED."
   }
 ]

@@ -107,6 +107,14 @@ async function createAdSet(payload, opts = {}) {
   const p = { status: 'PAUSED', ...payload };
   assertPaused(p, `adset ${p.name}`, opts.allowLive);
   if (!p.targeting) throw new Error('adset: нема targeting');
+
+  // Ліміт частоти Meta приймає ТІЛЬКИ з optimization_goal REACH (subcode 1815211).
+  // На IMPRESSIONS його поставити не можна — а саме IMPRESSIONS дає вищу
+  // частоту, тож обирати доводиться між керованою стелею і більшою частотою.
+  if (p.frequency_control_specs && p.optimization_goal !== 'REACH') {
+    throw new Error(`adset ${p.name}: frequency_control_specs можливий лише з optimization_goal REACH, ` +
+      `а тут ${p.optimization_goal} [1815211]. Або прибери ліміт, або перемкни на REACH.`);
+  }
   const t = typeof p.targeting === 'string' ? JSON.parse(p.targeting) : p.targeting;
   p.targeting = JSON.stringify(normalizeTargeting(t));
   if (p.promoted_object && typeof p.promoted_object !== 'string') p.promoted_object = JSON.stringify(p.promoted_object);
