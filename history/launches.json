@@ -1240,5 +1240,11 @@
       }
     ],
     "note": "Локальна група під клуб 144 (коло 3 км, Харківське шосе 144). Копія coach_kyiv зі зміненим гео. З coach_kyiv виключено те саме коло. Нова група PAUSED."
+  },
+  {
+    "date": "2026-09-16",
+    "campaign_name": "AI_Apollo_leads_All_EREPS_1609",
+    "campaign_id": "120250803000350193",
+    "note": "Аналог A_EREPS_1203 на лід-формах. Та сама структура, гео, бюджети й оголошення; змінені лише ціль (OUTCOME_LEADS/LEAD_GENERATION), promoted_object (page_id) і креатив (call_to_actions з lead_gen_form_id 1123200918911955). Форма тимчасова — замінити вручну. Все PAUSED."
   }
 ]
