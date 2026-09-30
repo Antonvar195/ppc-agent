@@ -1246,5 +1246,33 @@
     "campaign_name": "AI_Apollo_leads_All_EREPS_1609",
     "campaign_id": "120250803000350193",
     "note": "Аналог A_EREPS_1203 на лід-формах. Та сама структура, гео, бюджети й оголошення; змінені лише ціль (OUTCOME_LEADS/LEAD_GENERATION), promoted_object (page_id) і креатив (call_to_actions з lead_gen_form_id 1123200918911955). Форма тимчасова — замінити вручну. Все PAUSED."
+  },
+  {
+    "date": "2026-09-30",
+    "campaigns": [
+      "AI_Apollo_conversion_Kyiv_oct_0110",
+      "AI_Apollo_conversion_Zhytomyr_oct_0110",
+      "AI_Apollo_conversion_Boryspil_oct_0110",
+      "AI_Apollo_conversion_BilaTserkva_oct_0110",
+      "AI_Apollo_reach_Lviv_oct_0110",
+      "AI_Apollo_reach_Odessa_oct_0110",
+      "AI_Apollo_reach_IvanoFrankivsk_oct_0110",
+      "AI_Apollo_reach_Vinnytsia_oct_0110"
+    ],
+    "note": "Жовтневий план Meta: 4 конверсійні (Київ/Житомир/Бориспіль/БЦ) + 4 охватні (Львів/Одеса/ІФ/Вінниця), одне місто = одна кампанія, широка 18-65 FB+IG+Threads. Охватні REACH + ліміт частоти 8/30дн. Офери: 1грн Київ/Вінниця/Бориспіль/Львів, -50% БЦ/Одеса/Житомир/ІФ. Все PAUSED."
+  },
+  {
+    "date": "2026-09-30",
+    "campaigns": [
+      "AI_Apollo_conversion_Kyiv_oct_0110",
+      "AI_Apollo_conversion_Zhytomyr_oct_0110",
+      "AI_Apollo_conversion_Boryspil_oct_0110",
+      "AI_Apollo_conversion_BilaTserkva_oct_0110",
+      "AI_Apollo_reach_Lviv_oct_0110",
+      "AI_Apollo_reach_Odessa_oct_0110",
+      "AI_Apollo_reach_IvanoFrankivsk_oct_0110",
+      "AI_Apollo_reach_Vinnytsia_oct_0110"
+    ],
+    "note": "Жовтневий план Meta: 4 конверсійні (Київ/Житомир/Бориспіль/БЦ) + 4 охватні (Львів/Одеса/ІФ/Вінниця), одне місто = одна кампанія, широка 18-65 FB+IG+Threads. Охватні REACH + ліміт частоти 8/30дн. Офери: 1грн Київ/Вінниця/Бориспіль/Львів, -50% БЦ/Одеса/Житомир/ІФ. Все PAUSED."
   }
 ]
