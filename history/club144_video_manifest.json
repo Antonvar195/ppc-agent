@@ -1,0 +1,22 @@
+{
+  "v1_h": {
+    "file": "ApolloNext_144_1920_1080_15c_01.mp4",
+    "video_id": "1718113639287321",
+    "thumb_hash": "c1bdff13ec6f0ca88a074804ab4aa00f"
+  },
+  "v1_v": {
+    "file": "ApolloNext_144_1080_1920_14c_02.mp4",
+    "video_id": "1129599949507334",
+    "thumb_hash": "a54a183cb251fcb4c26b64c70c136957"
+  },
+  "v2_h": {
+    "file": "ApolloNext_144_1920_1080_12c_03.mp4",
+    "video_id": "2589600928136313",
+    "thumb_hash": "21b14c13af271136dfc7e909b5996d09"
+  },
+  "v2_v": {
+    "file": "ApolloNext_144__1080_1920_14c_04.mp4",
+    "video_id": "1714844753975901",
+    "thumb_hash": "47752e2a6f529d5899b587dac90ee5d6"
+  }
+}
