@@ -1288,5 +1288,15 @@
       }
     ],
     "note": "Відео-група в кампанії клубу 144: таргетинг і текст скопійовані з local_kyiv_segment_1, 2 адаптивні відео (9:16 сторіс / 16:9 стрічка). PAUSED."
+  },
+  {
+    "date": "2026-10-08",
+    "campaigns": [
+      "AI_Apollo_reach_Kyiv_oct_0910",
+      "AI_Apollo_reach_Zhytomyr_oct_0910",
+      "AI_Apollo_reach_Boryspil_oct_0910",
+      "AI_Apollo_reach_BilaTserkva_oct_0910"
+    ],
+    "note": "ТЗ TZ_reach_oct_switch.md (94b506d): Київ/Житомир/Бориспіль/БЦ з конверсій в охоплення. IMPRESSIONS, ліміт частоти відхилено Meta — створено без нього. Креативи переиспользовані з конверсійних. Все PAUSED, конверсійні НЕ зупинені."
   }
 ]
