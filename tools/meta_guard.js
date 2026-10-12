@@ -108,6 +108,16 @@ async function createAdSet(payload, opts = {}) {
   assertPaused(p, `adset ${p.name}`, opts.allowLive);
   if (!p.targeting) throw new Error('adset: нема targeting');
 
+  // Конверсійні цілі без вікна атрибуції — Meta мовчки ставить 7d click і
+  // втрачає view-through. ЗМІНИТИ ПІСЛЯ СТВОРЕННЯ НЕМОЖЛИВО (subcode 1504040),
+  // тому це помилка на вході, а не попередження.
+  const CONV_GOALS = ['OFFSITE_CONVERSIONS', 'VALUE', 'LEAD_GENERATION', 'OFFSITE_CONVERSION'];
+  if (CONV_GOALS.includes(p.optimization_goal) && !p.attribution_spec && !opts.allowDefaultAttribution) {
+    throw new Error(`adset ${p.name}: конверсійна ціль ${p.optimization_goal} без attribution_spec — ` +
+      'Meta поставить 7d click без view-вікна, і змінити це потім НЕ МОЖНА [1504040]. ' +
+      'Передай attribution_spec явно (зазвичай click 7d + view 1d) або opts.allowDefaultAttribution.');
+  }
+
   // Ліміт частоти Meta приймає ТІЛЬКИ з optimization_goal REACH (subcode 1815211).
   // На IMPRESSIONS його поставити не можна — а саме IMPRESSIONS дає вищу
   // частоту, тож обирати доводиться між керованою стелею і більшою частотою.
