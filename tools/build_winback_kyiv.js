@@ -21,14 +21,20 @@
 // Все PAUSED. Usage: node tools/build_winback_kyiv.js plan | build | verify
 const path = require('path');
 const G = require('./meta_guard');
-const { apiGet } = require('./meta_api');
+const { apiGet, apiPost } = require('./meta_api');
 require('dotenv').config({ path: path.join(__dirname, '../.env') });
 
 const ACCT = process.env.META_AD_ACCOUNT_ID;
 
 const CAMP_NAME  = 'AI_Apollo_winback_Kyiv_1410';
 const ADSET_NAME = 'churn_alltime_kyiv_18-65';
-const DAILY      = 5000;                       // $50.00/день
+// Бюджет від частоти, не навпаки. delivery_estimate групи: 25 000–29 300 осіб
+// (approximate_count аудиторії віддає заглушку 1000 — не вірити їй).
+// При CPM $3.03 по Києву: $20/день = 6.8 показів на людину за 4 тижні, тобто
+// та сама частота, що в живій conversion_Kyiv_oct_0110 (2.7 за 12 днів ≈ 6.3 за 28).
+// $50/день дали б 17 показів на людину — це зона вичерпання аудиторії
+// (findings: Житомир при 15.4/30 днів, CPA пішла вгору).
+const DAILY      = 2000;                       // $20.00/день
 const START      = '2026-10-14T00:01:00+0300';
 const END        = '2026-11-10T23:59:00+0200'; // 4 тижні; 25.10 перехід на зимовий час
 
@@ -36,8 +42,13 @@ const AUD_CHURN  = '120251208387370193';       // Apollo · відвал за в
 const AUD_ACTIVE = '120251208539010193';       // Apollo · активні на 05.10.26
 const REF_CAMP   = '120251010175330193';       // AI_Apollo_conversion_Kyiv_oct_0110 — еталон promoted_object
 
+// Три оголошення, як у старій кампанії conversion_Kyiv_oct_0110.
+// 0110_2 там на паузі, але за 01–13.10 витратило лише $49 і 0 клік-покупок —
+// це «не участвовало», а не «проиграло» (findings 31.07: судити об'яву,
+// що не набрала показів, не можна). У новій групі отримує рівний шанс.
 const ADS = [
   { name: '0110_1', creative_id: '1554595159803148' },
+  { name: '0110_2', creative_id: '1777480440189661' },
   { name: '0110_3', creative_id: '3150854848454557' },
 ];
 
@@ -109,8 +120,14 @@ async function build() {
   }, `campaign ${CAMP_NAME}`);
   console.log(`\n📁 ${CAMP_NAME} — ${camp.id}${prior ? ' (наявна)' : ''}`);
 
-  const liveSets = (await apiGet(`${camp.id}/adsets`, { fields: 'id,name', limit: '20' })).data || [];
-  const adset = liveSets.find(x => x.name === ADSET_NAME) || await G.createAdSet({
+  const liveSets = (await apiGet(`${camp.id}/adsets`, { fields: 'id,name,daily_budget', limit: '20' })).data || [];
+  const existing = liveSets.find(x => x.name === ADSET_NAME);
+  if (existing && String(existing.daily_budget) !== String(DAILY)) {
+    const up = await apiPost(existing.id, { daily_budget: String(DAILY) });
+    if (up.error) throw new Error(`бюджет групи: ${G.errMsg(up.error)}`);
+    console.log(`  💰 бюджет $${(existing.daily_budget / 100).toFixed(2)} → $${(DAILY / 100).toFixed(2)}/д`);
+  }
+  const adset = existing || await G.createAdSet({
     name: ADSET_NAME, campaign_id: camp.id,
     optimization_goal: 'OFFSITE_CONVERSIONS',
     promoted_object: await G.promotedObjectFrom((await firstAdset(REF_CAMP)).id),
