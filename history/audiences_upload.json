@@ -1,0 +1,42 @@
+{
+  "churn_all": {
+    "name": "Apollo · відвал за весь час · 05.10.26",
+    "rows": 171791,
+    "prepared": true,
+    "audience_id": "120251208387370193",
+    "sent": 171791,
+    "session_id": "1791902686250"
+  },
+  "all_base": {
+    "name": "Apollo · вся база · 05.10.26",
+    "rows": 216661,
+    "prepared": true,
+    "audience_id": "120251208441570193",
+    "sent": 216661,
+    "session_id": "1791902802625"
+  },
+  "buy_1y": {
+    "name": "Apollo · купували за рік · 05.10.26",
+    "rows": 95743,
+    "prepared": true,
+    "audience_id": "120251208502550193",
+    "sent": 95743,
+    "session_id": "1791902950482"
+  },
+  "buy_2y": {
+    "name": "Apollo · купували за два роки · 05.10.26",
+    "rows": 139196,
+    "prepared": true,
+    "audience_id": "120251208521490193",
+    "sent": 139196,
+    "session_id": "1791903017878"
+  },
+  "active": {
+    "name": "Apollo · активні на 05.10.26",
+    "rows": 32412,
+    "prepared": true,
+    "audience_id": "120251208539010193",
+    "sent": 32412,
+    "session_id": "1791903103857"
+  }
+}
