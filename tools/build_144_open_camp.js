@@ -88,6 +88,18 @@ const VID_RULES = [
   { customization_spec: { publisher_platforms: ['facebook', 'instagram'], facebook_positions: ['feed', 'instream_video', 'marketplace', 'right_hand_column'], instagram_positions: ['stream', 'explore', 'explore_home', 'profile_feed'] }, video_label: { name: 'h_vid' }, priority: 2 },
 ];
 
+// У не-advantage групах крутимо лише Instagram і Threads (рішення замовника,
+// 22.10). Advantage лишається на авто-плейсментах — там Meta обирає сама.
+function igOnly(src, adset) {
+  const t = JSON.parse(JSON.stringify(src));
+  if (t.targeting_automation && t.targeting_automation.advantage_audience === 1) return t;
+  t.publisher_platforms = ['instagram', 'threads'];
+  delete t.facebook_positions;
+  t.instagram_positions = ['stream', 'story', 'reels', 'explore', 'explore_home', 'profile_feed'];
+  t.threads_positions = ['threads_stream'];
+  return t;
+}
+
 async function srcAdsets() {
   const s = (await apiGet(`${SRC_CAMPAIGN}/adsets`, { fields: 'id,name,targeting,optimization_goal,billing_event,bid_strategy,promoted_object', limit: '20' })).data || [];
   const by = {}; for (const a of s) by[a.name] = a;
@@ -233,7 +245,7 @@ async function build() {
       daily_budget: String(a.budget),
       promoted_object: JSON.stringify({ pixel_id: PIXEL_ID, custom_event_type: 'PURCHASE' }),
       attribution_spec: JSON.stringify(ATTRIBUTION),
-      targeting: JSON.parse(JSON.stringify(ref.targeting)),
+      targeting: igOnly(ref.targeting, a),
       start_time: START, end_time: END,
     });
     console.log(`\n  📂 ${a.name.padEnd(18)} ${adset.id} | $${a.budget/100}/д`);
