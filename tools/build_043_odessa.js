@@ -34,7 +34,7 @@ const EXCLUDE_BUYERS = '120208237776480193';
 const CAMPAIGN_NAME = 'AI_Apollo_sales_Odessa_043_2710';
 const ADSET_NAME = 'Odessa_043_advantage_18-65';
 const CLUB_URL = 'https://apollo.online/clubs/apollo-next-043/';
-const TITLE = 'APOLLO NEXT 043 в Одесі — відкриття 03.12';
+const TITLE = 'Новий APOLLO NEXT 043 в Одесі — відкриття 03.12';
 const CTA = 'APPLY_NOW';
 const START = '2026-10-27T00:01:00+0200';
 const END   = '2026-12-02T23:59:00+0200';
@@ -64,9 +64,10 @@ const TARGETING = {
   targeting_automation: { advantage_audience: 1, individual_setting: { geo: 0 } },
 };
 
-const BODY = `🔥 APOLLO NEXT 043 відкривається в Одесі — вул. Академіка Корольова, 43-Є.
+// «Новий» на початку — в Одесі вже працюють 036 і 037, треба відрізнити
+const BODY = `🔥 Новий APOLLO NEXT 043 в Одесі — вул. Академіка Корольова, 43-Є.
 
-Відкриття 3 грудня. Новий спорт простір, де тіло, розклад і навіть настрій працюють на тебе.
+Відкриття 3 грудня. Третій клуб мережі в місті — спорт простір, де тіло, розклад і навіть настрій працюють на тебе.
 
 ▫️ 48 групових тренувань на тиждень
 ▫️ План тренувань і харчування
