@@ -34,6 +34,12 @@
   слой сверки с CRM. **Читать перед работой над аналитикой.**
 - `tools/audit_capi.js` — read-only аудит CAPI/пикселя
 
+### Сделано (октябрь 2026)
+- tools/build_sd_task.js — запуск тасков short-drama (`../short-drama`) по брифу `sd-brief/1`:
+  `plan` (без записи) → `build` (всё PAUSED через meta_guard) → `verify`. Имена объявлений и UTM
+  берутся из брифа дословно (ключ связи с CRM), кампания `AI_Apollo_sales_SD_Uk_{ddmm}`,
+  атрибуция 7d click + 1d view. Результат `sd-result/1` забирает `npm run sync-launch` в short-drama.
+
 ### Следующие этапы
 Порядок и содержание — в `ARCHITECTURE.md`, раздел 13. Кратко:
 1. Смена value в CAPI с первого платежа на LTV (вне кода, но приоритет №1)
