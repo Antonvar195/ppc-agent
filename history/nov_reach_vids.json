@@ -1,0 +1,47 @@
+{
+  "v1_h": {
+    "file": "AP_Video_1_16x9_V2.mp4",
+    "video_id": "2964983497192337",
+    "thumb_hash": "76357d0b9e401598ea98e08b64469a13"
+  },
+  "v1_sq": {
+    "file": "AP_Video_1_4x4_V2.mp4",
+    "video_id": "2352691438822295",
+    "thumb_hash": "ff6da705b777bd5561b1a680953dab62"
+  },
+  "v1_st": {
+    "file": "AP_Video_1_9x16_V2.mp4",
+    "video_id": "1887823839249806",
+    "thumb_hash": "864cee7c6822107b56ee2778894016e6"
+  },
+  "v2_h": {
+    "file": "AP_Video_2_16x9_V2.mp4",
+    "video_id": "1107554148717166",
+    "thumb_hash": "3dfabea05ccc32369df7d9b81d2e2b45"
+  },
+  "v2_sq": {
+    "file": "AP_Video_2_4x4_V2.mp4",
+    "video_id": "4520616881522314",
+    "thumb_hash": "f6b9288543890602ca9884528267611c"
+  },
+  "v2_st": {
+    "file": "AP_Video_2_9x16_V2.mp4",
+    "video_id": "1686316656243431",
+    "thumb_hash": "76b8c66ad02e5a56048720efd74c3016"
+  },
+  "v3_h": {
+    "file": "AP_Video_3_16x9.mp4",
+    "video_id": "1005116111848069",
+    "thumb_hash": "00fdb305562e792cf1098ac422e9a95b"
+  },
+  "v3_sq": {
+    "file": "AP_Video_3_4x4.mp4",
+    "video_id": "2727273144354326",
+    "thumb_hash": "593958209ba1c3be6b1b968dc0d4a7bc"
+  },
+  "v3_st": {
+    "file": "AP_Video_3_9x16.mp4",
+    "video_id": "1788756252371616",
+    "thumb_hash": "a9d491b291a2fcbabba7e42701ed82aa"
+  }
+}

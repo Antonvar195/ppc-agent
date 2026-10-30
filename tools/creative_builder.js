@@ -51,12 +51,18 @@ async function uploadImageBufferToMeta(buffer, name) {
 
 // Загрузить видео (буфер) в Meta → вернуть video_id
 async function uploadVideoBufferToMeta(buffer, name) {
+  // Meta визначає формат ВІДЕО за розширенням у filename. Назва без
+  // розширення дає 400 «формат не підтримується» (code 352 / 1363024),
+  // що ніяк не натякає на справжню причину. Тому добиваємо розширення.
+  const hasExt = /\.(mp4|mov|m4v|avi|mkv)$/i.test(name);
+  const filename = hasExt ? name : name + '.mp4';
+
   const form = new FormData();
   form.append('access_token', process.env.META_ACCESS_TOKEN);
   form.append('name', name);
   form.append('source', buffer, {
-    filename: name,
-    contentType: name.toLowerCase().endsWith('.mov') ? 'video/quicktime' : 'video/mp4'
+    filename,
+    contentType: /\.mov$/i.test(filename) ? 'video/quicktime' : 'video/mp4'
   });
 
   const response = await axios.post(
@@ -64,8 +70,11 @@ async function uploadVideoBufferToMeta(buffer, name) {
     form,
     {
       headers: form.getHeaders(),
-      maxContentLength: 200 * 1024 * 1024,
-      timeout: 120000
+      // Великі ролики (100+ МБ) не влазили у 2 хв і падали з 400.
+      // maxBodyLength обовʼязковий — без нього axios ріже тіло запиту.
+      maxContentLength: Infinity,
+      maxBodyLength: Infinity,
+      timeout: 15 * 60 * 1000
     }
   );
 

@@ -1356,5 +1356,19 @@
       }
     ],
     "note": "Пошук тренерів у клуб 043 (Одеса). Гео — МІСТО, не коло: coach_144_local на колі 3 км дав CPL $656 проти $80 у coach_odessa на місті. Таргетинг і конверсія з coach_odessa. PAUSED."
+  },
+  {
+    "date": "2026-10-30",
+    "campaigns": [
+      "AI_Apollo_reach_Kyiv_nov_0111",
+      "AI_Apollo_reach_Lviv_nov_0111",
+      "AI_Apollo_reach_Odessa_nov_0111",
+      "AI_Apollo_reach_Vinnytsia_nov_0111",
+      "AI_Apollo_reach_IvanoFrankivsk_nov_0111",
+      "AI_Apollo_reach_Zhytomyr_nov_0111",
+      "AI_Apollo_reach_BilaTserkva_nov_0111",
+      "AI_Apollo_reach_Boryspil_nov_0111"
+    ],
+    "note": "Листопадові охватні: 8 міст, 18-40, $8000, IMPRESSIONS, FB+IG+Threads. 3 відео × 3 формати, оффер 1 грн. Все PAUSED."
   }
 ]
