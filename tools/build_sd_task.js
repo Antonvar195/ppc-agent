@@ -14,10 +14,19 @@ const fs = require('fs');
 const path = require('path');
 const G = require('./meta_guard');
 const { apiGet, apiPost } = require('./meta_api');
+const { downloadFile } = require('./gdrive');
+const { uploadVideoBufferToMeta } = require('./creative_builder');
 require('dotenv').config({ path: path.join(__dirname, '../.env') });
 
 const ACCT = process.env.META_AD_ACCOUNT_ID;
-const PREVIEW_FORMATS = ['INSTAGRAM_STORY', 'INSTAGRAM_REELS', 'FACEBOOK_STORY_MOBILE', 'FACEBOOK_REELS_MOBILE'];
+// Прев'ю перевіряємо лише для плейсментів, які є в таргетингу брифу
+const PREVIEW_BY_POSITION = [
+  ['instagram_positions', 'story', 'INSTAGRAM_STORY'],
+  ['instagram_positions', 'reels', 'INSTAGRAM_REELS'],
+  ['facebook_positions', 'story', 'FACEBOOK_STORY_MOBILE'],
+  ['facebook_positions', 'facebook_reels', 'FACEBOOK_REELS_MOBILE'],
+];
+const previewFormats = t => PREVIEW_BY_POSITION.filter(([k, pos]) => (t[k] || []).includes(pos)).map(([, , f]) => f);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 function loadBrief(file) {
@@ -30,11 +39,29 @@ function loadBrief(file) {
   if (!/utm_content=\{\{ad\.name\}\}/.test(b.url_tags)) throw new Error('url_tags без utm_content={{ad.name}} — short-drama не звʼяже оплати з оголошенням');
   const names = b.ads.map(a => a.ad_name);
   if (new Set(names).size !== names.length) throw new Error('у брифі повторюються імена оголошень');
+  for (const a of b.ads) {
+    if (isDrive(a.video) ? !a.video.file_id : !a.video.url) throw new Error(`${a.ad_name}: у брифі нема відео (file_id Drive або url Dropbox)`);
+  }
   return b;
 }
 
+// Відео: Dropbox — тимчасове посилання (Meta забирає сама, живе 4 год); Drive — качаємо й заливаємо буфером
+const isDrive = v => v.source === 'gdrive';
+
 function linksAlive(b) {
+  if (b.ads.every(a => isDrive(a.video))) return true;
   return Date.now() < Date.parse(b.video_urls_expire_at) - 10 * 60_000;
+}
+
+async function uploadVideo(a) {
+  if (!isDrive(a.video)) {
+    const up = await apiPost(`${ACCT}/advideos`, { file_url: a.video.url, name: a.ad_name });
+    if (up.error) throw new Error(`відео ${a.ad_name}: ${G.errMsg(up.error)}`);
+    return up.id;
+  }
+  const buf = await downloadFile(a.video.file_id);
+  console.log(`     ⬇  ${a.video.name} з Drive · ${(buf.length / 1e6).toFixed(0)} МБ`);
+  return uploadVideoBufferToMeta(buf, a.video.name);
 }
 
 async function findCampaign(name) {
@@ -77,10 +104,10 @@ async function plan(file) {
   console.log(`   виключено: ${(t.excluded_custom_audiences || []).map(x => x.id).join(', ') || '—'} · плейсменти: ${t.publisher_platforms ? JSON.stringify([t.facebook_positions, t.instagram_positions]) : 'авто'}`);
   const existing = set ? (await adsOf(set.id)).map(a => a.name) : [];
   for (const a of b.ads) {
-    console.log(`   ${existing.includes(a.ad_name) ? '⏭ ' : '➕'} ${a.ad_name} [${a.cta}] ${a.link}`);
+    console.log(`   ${existing.includes(a.ad_name) ? '⏭ ' : '➕'} ${a.ad_name} [${a.cta}] ${a.link} · ${isDrive(a.video) ? 'Drive' : 'Dropbox'}`);
   }
   console.log(`   текст: ${b.ads[0].primary_text}\n   заголовок: ${b.ads[0].headline}`);
-  console.log(`   посилання на відео ${linksAlive(b) ? 'дійсні до ' + b.video_urls_expire_at : '❌ ПРОТЕРМІНОВАНІ — перезбери бриф'}`);
+  console.log(`   відео ${b.ads.every(a => isDrive(a.video)) ? 'з Drive (без терміну)' : linksAlive(b) ? 'Dropbox, посилання дійсні до ' + b.video_urls_expire_at : '❌ посилання Dropbox ПРОТЕРМІНОВАНІ — перезбери бриф'}`);
 
   if (!set) {
     const check = await apiPost(`${ACCT}/adsets`, {
@@ -138,8 +165,7 @@ async function build(file) {
     const prior = live.find(x => x.name === a.ad_name);
     if (prior) { console.log(`     ⏭  ${a.ad_name} вже є — ${prior.id}`); out.push({ ad_name: a.ad_name, ad_id: prior.id, creative_id: prior.creative && prior.creative.id }); continue; }
 
-    const up = await apiPost(`${ACCT}/advideos`, { file_url: a.video.url, name: a.ad_name });
-    if (up.error) throw new Error(`відео ${a.ad_name}: ${G.errMsg(up.error)}`);
+    const up = { id: await uploadVideo(a) };
     await waitVideo(up.id);
     const thumb = await thumbnailHash(up.id, a.ad_name);
 
@@ -194,8 +220,9 @@ async function verifyAds(b, adsetId, made) {
     const link = vd.call_to_action && vd.call_to_action.value && vd.call_to_action.value.link;
     if (link && link.replace(/\/$/, '') !== brief.link.replace(/\/$/, '')) problems.push(`лінк ${link} ≠ ${brief.link}`);
     if (ad && ad.creative.url_tags !== b.url_tags) problems.push('url_tags не збігаються з брифом');
-    const p = ad ? await G.checkPreviews(m.ad_id, PREVIEW_FORMATS) : { ok: false };
-    if (!p.ok) problems.push(`прев'ю: ${PREVIEW_FORMATS.map(f => f + '=' + p[f]).join(' ')}`);
+    const formats = previewFormats(b.adset.targeting);
+    const p = ad ? await G.checkPreviews(m.ad_id, formats) : { ok: false };
+    if (!p.ok) problems.push(`прев'ю: ${formats.map(f => f + '=' + p[f]).join(' ')}`);
     console.log(`   ${problems.length ? '❌' : '✅'} ${m.ad_name} ${problems.join('; ') || 'дані й прев\'ю ок'}`);
     out.push({ ...m, verified: !problems.length, problems, previews: p });
   }
