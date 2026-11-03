@@ -50,8 +50,9 @@ function normalizeTargeting(targeting) {
   // Радіус навколо МІСТА має бути >= 10 миль (17 км) — менше Meta відхиляє
   // з subcode 1487110. Для меншого радіуса є custom_locations (lat/lng),
   // але коло від точки може не покрити все місто.
+  // Місто без radius = лише його межі (short-drama перевірила оцінкою охоплення) — це дозволено.
   for (const c of geo.cities || []) {
-    if (c.radius === undefined) continue;
+    if (c.radius === undefined || c.radius === 0) continue;
     const km = c.distance_unit === 'mile' ? c.radius * 1.609 : c.radius;
     if (km < 16.9) {
       throw new Error(`targeting: радіус ${c.radius} ${c.distance_unit || 'km'} навколо міста замалий — ` +

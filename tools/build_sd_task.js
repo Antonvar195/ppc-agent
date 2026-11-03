@@ -100,7 +100,8 @@ async function plan(file) {
   console.log(`📁 ${b.campaign.name} — ${camp ? camp.id + ' (наявна, ' + camp.status + ')' : 'буде створена, PAUSED'}`);
   console.log(`📂 ${b.adset.name} — ${set ? set.id + ' (наявна)' : 'буде створена, PAUSED'} · $${(b.adset.daily_budget / 100).toFixed(2)}/д`);
   console.log(`   ${b.adset.optimization_goal} · ${b.adset.attribution_spec.map(x => (x.event_type === 'CLICK_THROUGH' ? 'click' : 'view') + x.window_days + 'd').join('+')}`);
-  console.log(`   ${t.geo_locations.countries} · ${t.age_min}-${t.age_max} · стать ${t.genders || 'усі'} · advantage=${t.targeting_automation.advantage_audience}`);
+  const geo = t.geo_locations.cities ? `міста: ${t.geo_locations.cities.length}${t.geo_locations.cities.some(c => c.radius) ? ' + радіус' : ' (лише межі міст)'}` : t.geo_locations.countries;
+  console.log(`   ${geo} · ${t.age_min}-${t.age_max} · стать ${t.genders || 'усі'} · advantage=${t.targeting_automation.advantage_audience}`);
   console.log(`   виключено: ${(t.excluded_custom_audiences || []).map(x => x.id).join(', ') || '—'} · плейсменти: ${t.publisher_platforms ? JSON.stringify([t.facebook_positions, t.instagram_positions]) : 'авто'}`);
   const existing = set ? (await adsOf(set.id)).map(a => a.name) : [];
   for (const a of b.ads) {
